@@ -18,7 +18,7 @@ export function registerGetFileName(server: McpServer, ctx: ToolContext) {
     ({ fileKey }) =>
       runTool("get_file_name", async () => {
         const session = await ctx.files.open(fileKey);
-        return session.execJson<{ name: string }>(GET_FILE_NAME_SCRIPT);
+        return { output: await session.execJson<{ name: string }>(GET_FILE_NAME_SCRIPT) };
       }),
   );
 }

@@ -197,6 +197,24 @@ new App(new WindowManager(), new Session(), new FontManager());
 - Tools are addressed by `fileKey`, never by "the active tab". `McpFileRegistry` opens each file once
   in a tab of its own (`Window.openMcpFile` → `Tab.owner === "mcp"`) and shares it between clients;
   `McpFileSession` waits for `window.figma` and runs scripts via `webContents.executeJavaScript()`
+- Tools: `get_file_name`, `get_screenshot` (one node → PNG image block, longest edge fitted into
+  `[SCREENSHOT_MIN_EDGE, SCREENSHOT_MAX_EDGE]`) and `download_assets` (up to `MAX_ASSET_NODES` nodes →
+  png/jpg/svg files). Both run one in-tab script, `buildExportNodesScript()` (`scripts/exportNodes.ts`):
+  it resolves ids with `getNodeByIdAsync`, exports sequentially under a time/byte budget and returns
+  base64 or SVG text; `tools/exportErrors.ts` turns its per-node error codes into messages
+- Node ids accept `1015:50826`, the URL form `1015-50826` and instance children `I…;…`.
+  `normalizeNodeId()` maps dashes to colons in the tool body, not in zod: a `.transform()` would not
+  survive the SDK's JSON-Schema conversion for `tools/list`
+- `download_assets` writes through `McpAssetStore` (`assets/`) into
+  `<temp>/figma-mcp-assets/<callId>/` (under Flatpak `$XDG_CACHE_HOME/figma-mcp-assets`: the
+  sandbox's `/tmp` is invisible to the host). Last session's files are removed on the first export of a
+  process (`McpAssetStore.prepare()`), not at start-up: binding the port never waits for the `rm`,
+  and `McpService.start()` re-running on a port change from Settings leaves files alone. No `outputDir` parameter by design: the tool never writes outside
+  its own directory. Each file is also a `resource_link`; `registerAssetResource()` (`assets/`) serves
+  `resources/read` for `file://` URIs inside that root (svg as text, png/jpg as blob) and rejects
+  anything outside it
+- Tool descriptions are agent-facing only: inputs, outputs, what is temporary. Internals (parked
+  tabs, the Plugin API, fit/scale logic) don't belong in them
 - mcp tabs show in the panel with a `[mcp] ` prefix (`Tab.displayTitle`); they are skipped by the
   user's open-file dedup (`Window.findTabForUrl`), by tab persistence (`Window.getState`) and by
   closed-tab history (`WindowManager.handleCloseTab`)
@@ -331,7 +349,8 @@ Custom switches can be added in settings under `app.commandSwitches`.
 | `src/main/Ui/Window.ts` | Single window: BrowserWindow + TabManager + warm tab |
 | `src/main/Ui/TabManager.ts` | Tab management per window |
 | `src/main/Dialogs/index.ts` | Dialog provider (Native / Zenity) |
-| `src/main/MCP/McpService.ts` | MCP server facade (port 3845): HTTP transport + fileKey-addressed file registry |
+| `src/main/MCP/McpService.ts` | MCP server facade (port 3845): HTTP transport + fileKey-addressed file registry + temp asset store |
+| `src/main/MCP/scripts/exportNodes.ts` | The in-tab export script (`buildExportNodesScript()`) and its wire types, shared by `get_screenshot` / `download_assets` |
 | `src/main/UrlHandlerIntegration.ts` | figma:// handler registration for AppImage / bare-binary launches |
 | `src/main/ExtensionManager.ts` | Plugin system with hot-reloading |
 | `src/renderer/Panel/App.svelte` | Main toolbar UI |

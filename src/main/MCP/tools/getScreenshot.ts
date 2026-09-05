@@ -1,0 +1,61 @@
+import type { McpServer } from "@modelcontextprotocol/server";
+import { nativeImage } from "electron";
+import * as z from "zod/v4";
+import { ASSET_FORMATS } from "../assets/formats";
+import { SCREENSHOT_MAX_BYTES, SCREENSHOT_MAX_EDGE, SCREENSHOT_MIN_EDGE } from "../config";
+import { exportNodes } from "../scripts/exportNodes";
+import type { ToolContext } from "./context";
+import { exportErrorMessage } from "./exportErrors";
+import { runTool } from "./runTool";
+import { fileKeySchema, nodeIdSchema, normalizeNodeId } from "./schemas";
+
+const PNG = ASSET_FORMATS.png;
+
+const inputSchema = z.object({ fileKey: fileKeySchema, nodeId: nodeIdSchema });
+
+const outputSchema = z.object({
+  node: z.object({ width: z.number(), height: z.number() }).describe("Node size in design px"),
+  image: z.object({ width: z.number(), height: z.number() }).describe("Image size in px"),
+  scale: z.number().describe("image px per design px"),
+});
+
+export function registerGetScreenshot(server: McpServer, ctx: ToolContext) {
+  server.registerTool(
+    "get_screenshot",
+    {
+      title: "Get screenshot",
+      description:
+        "Renders one node of a Figma file (frame, section, page, component, instance…) to a PNG " +
+        "for viewing. Returns the image, the node's size in design pixels, the image size and the " +
+        "scale between them.",
+      inputSchema,
+      outputSchema,
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    ({ fileKey, nodeId }) =>
+      runTool("get_screenshot", async () => {
+        const id = normalizeNodeId(nodeId);
+        const session = await ctx.files.open(fileKey);
+
+        const render = async (maxEdge: number) => {
+          const fit = { min: SCREENSHOT_MIN_EDGE, max: maxEdge };
+          const [item] = await exportNodes(session, [{ id, spec: { format: "PNG", fit } }]);
+          const error = exportErrorMessage(item, fileKey, nodeId);
+          if (error) throw new Error(error);
+          return item;
+        };
+
+        let item = await render(SCREENSHOT_MAX_EDGE);
+        if (Buffer.byteLength(item.data, "base64") > SCREENSHOT_MAX_BYTES) {
+          item = await render(SCREENSHOT_MAX_EDGE / 2);
+        }
+
+        const image = nativeImage.createFromBuffer(Buffer.from(item.data, "base64")).getSize();
+        const scale = Math.round((image.width / item.width) * 1000) / 1000;
+        return {
+          output: { node: { width: item.width, height: item.height }, image, scale },
+          content: [{ type: "image", data: item.data, mimeType: PNG.mimeType }],
+        };
+      }),
+  );
+}

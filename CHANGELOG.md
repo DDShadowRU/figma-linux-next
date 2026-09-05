@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`get_screenshot` and `download_assets` MCP tools.** `get_screenshot({ fileKey, nodeId })` renders
+  one node to a PNG sized for viewing and returns it as an image together with the node's design
+  size, the image size and the scale between them. `download_assets({ fileKey, nodes, format?, scale? })`
+  exports up to 20 nodes as png, jpg or svg files into a temporary directory (cleared on the next app
+  start) and returns their paths, each also as a resource link readable over MCP; a node that fails is reported in `failed` while the rest are still
+  exported. Node ids are accepted as `1015:50826`, the URL form `1015-50826` and instance children
+  `I…;…`.
+
 ### Changed
 
 - **MCP server rebuilt on the official MCP SDK and addressed by file key.** Tools no longer act on

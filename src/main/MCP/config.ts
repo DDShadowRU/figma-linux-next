@@ -8,3 +8,12 @@ export const SERVER_VERSION = APP_VERSION;
 
 export const FILE_OPEN_TIMEOUT_MS = Number(process.env.FIGMA_MCP_FILE_OPEN_TIMEOUT_MS) || 60_000;
 export const PLUGIN_API_POLL_MS = 500;
+
+export const SCREENSHOT_MIN_EDGE = 512;
+export const SCREENSHOT_MAX_EDGE = 2000;
+export const SCREENSHOT_MAX_BYTES = 4.5 * 1024 * 1024;
+export const MAX_ASSET_NODES = 20;
+export const ASSET_MIN_SCALE = 0.1;
+export const ASSET_MAX_SCALE = 4;
+export const EXPORT_BUDGET = { timeMs: 45_000, bytes: 64 * 1024 * 1024 };
+export const ASSET_DIR_NAME = "figma-mcp-assets";

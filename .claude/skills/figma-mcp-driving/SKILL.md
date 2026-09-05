@@ -45,6 +45,20 @@ restored on restart and never appear in "reopen closed tab".
 Figma boots); later calls answer in well under a second. Where to get a key: the URL the user gave
 you, or `fetch('/api/recent_files')` evaluated in the Recents page over CDP (`"key"` fields).
 
+**Look at a node** — `get_screenshot({ fileKey, nodeId })`. The PNG arrives as an image block; the
+JSON next to it carries `node` (design px), `image` (px) and `scale` between them — use `scale` when
+measuring on the picture. Node ids: `1015:50826`, the URL form `1015-50826` (`node-id=…`), or an
+instance child `I5752:65667;469:26400`. Pages export too (`1015:50826` above is one) but are large
+and slow; prefer a frame or section. An icon takes well under a second, a 14 000-px section ~5 s.
+
+**Pull assets into a project** — `download_assets({ fileKey, nodes: [nodeId, …], format?, scale? })`,
+up to 20 nodes per call, one format (png/jpg/svg) and scale for all of them. Each file comes back with its absolute path (under
+`<temp>/figma-mcp-assets/<callId>/`); the directory is wiped on the next app start, so copy
+what you need right away. The `resource_link`s are readable over MCP too (`resources/read`), which
+is the shortest way to get an svg's markup into context. One bad node lands in `failed`, the rest are still written. For
+icons ask for `svg`: the markup comes with `width`, `height` and `viewBox`, flat `<path>`s and the
+fills Figma had; adapting colours to the project is your job.
+
 **Check what the app did** — chrome-figma `list_pages`; the panel is the `dist/index.html` page.
 Evaluate `[...document.querySelectorAll('[data-tab-id]')].map(e => e.innerText)` there to see the
 tab strip, including `[mcp] …` entries. Page ids in CDP are **not** tab ids: match by URL.
@@ -56,6 +70,10 @@ tab; leaving it parks it again and the Figma MCP keeps working.
 **Debug a failed call** — read the error text before anything else:
 - *Figma answered 404* / *403* → wrong key, deleted file, or the account has no access. These fail
   within a couple of seconds and the app closes the tab it opened; nothing to retry.
+- *Node "…" not found in file …* → the id is from another file, or mistyped. Dashes are normalised
+  to colons for you (the message shows the normalised id); `0:0` is the document and cannot be
+  exported. *is hidden (visible: false)* → the layer is switched off in the design; Figma renders
+  nothing for it, so pick a visible node.
 - url still `/login` → the app isn't signed in.
 - a timeout carries the tab's state: url, `visibility`, `readyState`, size, page title and the
   first lines of page text.
@@ -76,8 +94,10 @@ tab; leaving it parks it again and the Figma MCP keeps working.
 
 ## Tool quick-reference
 
-**Figma MCP:** `get_file_name({ fileKey }) → { name }`. More tools are added on the same file
-registry — every new one takes `fileKey` the same way.
+**Figma MCP:** `get_file_name({ fileKey }) → { name }`;
+`get_screenshot({ fileKey, nodeId }) → image + { node, image, scale }`;
+`download_assets({ fileKey, nodes[], format?, scale? }) → { files[{ nodeId, name, path, width, height }], failed[] }`
+plus a `resource_link` per file. Every tool takes `fileKey` the same way.
 
 **chrome-figma (control):** `list_pages` / `select_page`, `evaluate_script`, `take_screenshot` /
 `take_snapshot`, `click` / `fill` / `type_text` / `press_key`, `list_console_messages`,

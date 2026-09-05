@@ -54,8 +54,7 @@ round-trip. Everything binds to `127.0.0.1` and is configured in **Settings → 
   app opens it in a background tab labelled `[mcp] <file name>`, waits for it to load and keeps it for
   later calls: every assistant asking for that file shares the tab, and it never collides with the
   tabs you opened yourself. Close the tab and the next call opens it again; mcp tabs are not restored
-  on restart. Built on the official MCP TypeScript SDK; the tool set currently consists of
-  `get_file_name` and will grow.
+  on restart. Built on the official MCP TypeScript SDK.
 - **Control plane — Chrome DevTools (CDP)** (opt-in, needs a restart). Exposes the app window over
   `--remote-debugging-port` so a CDP client (e.g. [chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp))
   can drive the UI — switch tabs, click, type, screenshot the real window.
