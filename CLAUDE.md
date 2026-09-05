@@ -213,6 +213,11 @@ new App(new WindowManager(), new Session(), new FontManager());
   its own directory. Each file is also a `resource_link`; `registerAssetResource()` (`assets/`) serves
   `resources/read` for `file://` URIs inside that root (svg as text, png/jpg as blob) and rejects
   anything outside it
+- svg exports pass through `optimizeSvg()` (`assets/optimizeSvg.ts`): svgo `preset-default` with
+  `cleanupIds.minify` off, so Figma ids (`clip0_…`) survive inlining several files into one page.
+  svgo is `import()`ed on the first svg export; if it throws, the raw export is written and a
+  warning logged. Measured on real files: −40…−55% bytes on vector nodes, ~−25% on frames with
+  embedded rasters
 - Tool descriptions are agent-facing only: inputs, outputs, what is temporary. Internals (parked
   tabs, the Plugin API, fit/scale logic) don't belong in them
 - mcp tabs show in the panel with a `[mcp] ` prefix (`Tab.displayTitle`); they are skipped by the

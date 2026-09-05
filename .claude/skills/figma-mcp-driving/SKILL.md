@@ -56,8 +56,9 @@ up to 20 nodes per call, one format (png/jpg/svg) and scale for all of them. Eac
 `<temp>/figma-mcp-assets/<callId>/`); the directory is wiped on the next app start, so copy
 what you need right away. The `resource_link`s are readable over MCP too (`resources/read`), which
 is the shortest way to get an svg's markup into context. One bad node lands in `failed`, the rest are still written. For
-icons ask for `svg`: the markup comes with `width`, `height` and `viewBox`, flat `<path>`s and the
-fills Figma had; adapting colours to the project is your job.
+icons ask for `svg`: the markup is minified (svgo `preset-default`, ids not renamed) and comes with
+`width`, `height` and `viewBox`, Figma's `clip0_…` ids, flat `<path>`s in relative commands rounded to
+3 decimals and the fills Figma had; adapting colours to the project is your job.
 
 **Check what the app did** — chrome-figma `list_pages`; the panel is the `dist/index.html` page.
 Evaluate `[...document.querySelectorAll('[data-tab-id]')].map(e => e.innerText)` there to see the

@@ -2,6 +2,7 @@ import type { ContentBlock, McpServer } from "@modelcontextprotocol/server";
 import { nativeImage } from "electron";
 import * as z from "zod/v4";
 import { ASSET_FORMATS, assetFormatSchema } from "../assets/formats";
+import { optimizeSvg } from "../assets/optimizeSvg";
 import { MAX_ASSET_NODES } from "../config";
 import { exportNodes } from "../scripts/exportNodes";
 import type { ToolContext } from "./context";
@@ -92,7 +93,8 @@ export function registerDownloadAssets(server: McpServer, ctx: ToolContext) {
           }
 
           const fileName = reserveFileName(slugify(item.name, item.id), format, taken);
-          const payload = item.svg ?? Buffer.from(item.data, "base64");
+          const payload =
+            item.svg !== undefined ? await optimizeSvg(item.svg) : Buffer.from(item.data, "base64");
           dir ??= await ctx.assets.createCallDir();
           const written = await ctx.assets.write(dir, fileName, payload);
           const size =

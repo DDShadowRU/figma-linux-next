@@ -36,8 +36,7 @@ export class McpAssetStore {
   ): Promise<WrittenAsset> {
     const filePath = path.join(dir, fileName);
     await writeFile(filePath, data);
-    const bytes =
-      typeof data === "string" ? Buffer.byteLength(data) : data.byteLength;
+    const bytes = typeof data === "string" ? Buffer.byteLength(data) : data.byteLength;
     return { path: filePath, uri: pathToFileURL(filePath).href, bytes };
   }
 

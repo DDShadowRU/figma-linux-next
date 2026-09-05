@@ -12,10 +12,7 @@ const ASSET_URI_TEMPLATE = new ResourceTemplate("file:///{+path}", {
   list: undefined,
 });
 
-export function registerAssetResource(
-  server: McpServer,
-  assets: McpAssetStore,
-) {
+export function registerAssetResource(server: McpServer, assets: McpAssetStore) {
   server.registerResource(
     "asset",
     ASSET_URI_TEMPLATE,
@@ -36,9 +33,7 @@ export function registerAssetResource(
         throw notFound();
       });
       const body =
-        format === "svg"
-          ? { text: bytes.toString("utf8") }
-          : { blob: bytes.toString("base64") };
+        format === "svg" ? { text: bytes.toString("utf8") } : { blob: bytes.toString("base64") };
       return {
         contents: [{ uri: uri.href, mimeType: spec.mimeType, ...body }],
       };

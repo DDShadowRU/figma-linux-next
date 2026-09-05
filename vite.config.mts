@@ -67,6 +67,7 @@ export default defineConfig({
                 "node:fs",
                 "electron-log",
                 "electron-log/main",
+                "svgo",
                 "crypto",
                 "url",
                 "node:http",

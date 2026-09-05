@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`download_assets` minifies svg exports with svgo.** `preset-default` with ids left unrenamed, so
+  `viewBox`, `width`/`height` and Figma's `clip0_…` ids survive; on real files this is 40–55% fewer
+  bytes for vector nodes and about 25% for frames with embedded rasters. If svgo fails, the raw
+  export is written.
 - **MCP server rebuilt on the official MCP SDK and addressed by file key.** Tools no longer act on
   whatever tab happens to be active: every tool takes a `fileKey`, and the app opens that file in a
   background tab of its own — labelled `[mcp] <file name>` in the tab strip — waits for it to load,
