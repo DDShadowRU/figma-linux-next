@@ -12,9 +12,7 @@ import type WindowManager from "./Ui/WindowManager";
 import TrayManager from "./Ui/TrayManager";
 import type Session from "./Session";
 import type FontManager from "./Fonts";
-import { McpServer } from "./MCP";
-import type { FigmaViewProvider } from "./MCP";
-import { MCP_PORT } from "./MCP/config";
+import { McpService, MCP_PORT } from "./MCP";
 
 // Controllers
 import { ipcRegistry } from "./controllers/registry";
@@ -27,7 +25,7 @@ import FileController from "./controllers/FileController";
 
 export default class App {
   private authController: AuthController;
-  private mcpServer: McpServer;
+  private mcp: McpService;
   private trayManager: TrayManager;
 
   constructor(
@@ -54,7 +52,9 @@ export default class App {
 
     registerUrlHandler();
 
-    this.mcpServer = new McpServer(logger);
+    this.mcp = new McpService({
+      openFile: (fileKey) => this.windowManager.openMcpFile(fileKey),
+    });
     this.trayManager = new TrayManager(this.windowManager);
 
     // Initialize controllers — registers all IPC handlers through the registry
@@ -84,34 +84,9 @@ export default class App {
     this.session.handleAppReady();
     this.trayManager.apply(storage.settings.app.trayEnabled);
 
-    // Wire up the FigmaViewProvider — dynamically resolves the last focused window
-    const viewProvider: FigmaViewProvider = {
-      executeInBrowserView: (script: string) => {
-        const win = this.windowManager.getLastFocusedWindow();
-        if (!win) throw new Error("No Figma window open");
-        return win.executeInBrowserView(script);
-      },
-      getActiveTabView: () => {
-        const win = this.windowManager.getLastFocusedWindow();
-        if (!win) return null;
-        const tabId = win.getLatestFocusedTabId();
-        if (!tabId) return null;
-        const tab = win.tabs.get(tabId);
-        return tab?.view ?? null;
-      },
-      getActiveTabUrl: () => {
-        const win = this.windowManager.getLastFocusedWindow();
-        if (!win) return null;
-        const tabId = win.getLatestFocusedTabId();
-        if (!tabId) return null;
-        return win.getTabInfo(tabId)?.url ?? null;
-      },
-    };
-    this.mcpServer.setViewProvider(viewProvider);
-    this.mcpServer.setWriteToolsEnabled(!!storage.settings.mcp?.enableWriteTools);
     // Server is opt-out (default on). Only bind when enabled.
     if (storage.settings.mcp?.serverEnabled !== false) {
-      this.mcpServer.start(storage.settings.mcp?.serverPort ?? MCP_PORT);
+      void this.mcp.start(storage.settings.mcp?.serverPort ?? MCP_PORT);
     }
 
     setTimeout(() => {
@@ -205,7 +180,7 @@ export default class App {
     // The MCP server must also be stopped here; otherwise its HTTP listener
     // on port 3845 keeps the event loop alive and the process hangs after
     // window close, blocking subsequent launches via the single-instance lock.
-    this.mcpServer.stop();
+    void this.mcp.stop();
     this.windowManager.saveState();
     storage.save().finally(() => app.quit());
   }
@@ -216,7 +191,7 @@ export default class App {
   }
 
   private async quitApp() {
-    this.mcpServer.stop();
+    await this.mcp.stop();
     this.windowManager.saveState();
     await storage.save();
 
@@ -231,13 +206,10 @@ export default class App {
     app.on("signOut", () => this.authController.logout());
     app.on("quitApp", this.quitApp.bind(this));
     app.on("trayEnabledChanged", (enabled: boolean) => this.trayManager.apply(enabled));
-    app.on("mcpWriteToolsChanged", (enabled: boolean) => {
-      this.mcpServer.setWriteToolsEnabled(enabled);
-    });
     app.on("mcpServerConfigChanged", ({ enabled, port }: { enabled: boolean; port: number }) => {
       // Our own http.Server — start/stop/rebind live, no app restart needed.
-      if (enabled) void this.mcpServer.restart(port);
-      else this.mcpServer.stop();
+      if (enabled) void this.mcp.restart(port);
+      else void this.mcp.stop();
     });
   };
 
@@ -247,7 +219,7 @@ export default class App {
     const portStr = active ? app.commandLine.getSwitchValue("remote-debugging-port") : "";
     const cdpPort = portStr ? Number.parseInt(portStr, 10) : Number.NaN;
     return {
-      server: this.mcpServer.getStatus(),
+      server: this.mcp.getStatus(),
       cdp: { active, port: Number.isFinite(cdpPort) ? cdpPort : null },
     };
   }

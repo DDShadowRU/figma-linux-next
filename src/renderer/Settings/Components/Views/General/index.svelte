@@ -292,21 +292,11 @@
               <span class="mcp-block-title">Figma MCP</span>
               <span class="status-chip {figmaChip.kind}">{figmaChip.text}</span>
             </div>
-            <p class="mcp-block-lead">Serves your open file's design context to AI assistants.</p>
+            <p class="mcp-block-lead">Lets AI assistants work with your Figma files by file key.</p>
           </div>
           <div class="mcp-rows">
             <SettingRow title="Enable Figma MCP" subtitle="Runs the local HTTP server">
               <Toggle bind:checked={$settings.mcp.serverEnabled} />
-            </SettingRow>
-            <SettingRow
-              title="Enable write tools"
-              badge="Experimental"
-              subtitle="Let AI edit, not just read"
-            >
-              <Toggle
-                bind:checked={$settings.mcp.enableWriteTools}
-                disabled={!($settings.mcp.serverEnabled ?? true)}
-              />
             </SettingRow>
             <SettingRow title="Server port" subtitle="Default 3845">
               <input
@@ -321,13 +311,12 @@
           </div>
           <div class="mcp-intro">
             <p class="mcp-block-desc">
-              <strong>Read (always on):</strong> scene graph, metadata, variables &amp; styles,
-              screenshots, find/tree, Code Connect, design-system rules, Mermaid→FigJam.
-              <strong>Write (optional):</strong> create/edit/delete nodes, set text, new page.
+              Tools take a <code>fileKey</code>. A file an assistant asks for opens in its own
+              <code>[mcp]</code> tab, separate from yours, and is shared between assistants.
+              <strong>Tools:</strong> get_file_name — more to come.
             </p>
             <p class="mcp-note">
-              Read tools ship with the server; write tools layer on top. Disabling closes the local
-              endpoint entirely.
+              Disabling closes the local endpoint entirely.
             </p>
           </div>
           <div class="mcp-block-snippet">

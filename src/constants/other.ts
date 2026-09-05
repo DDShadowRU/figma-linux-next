@@ -27,6 +27,7 @@ export const REGEXP_APP_AUTH_GRANT = /^\/{0,2}app_auth\/[^/]+\/grant/;
 export const FIGMA_SESSION_COOKIE_NAME = "figma.session";
 
 export const NEW_FILE_TAB_TITLE = "New file";
+export const MCP_TAB_TITLE_PREFIX = "[mcp] ";
 
 export const LINKS = {
   HELP_PAGE: "https://help.figma.com",

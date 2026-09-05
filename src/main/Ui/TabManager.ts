@@ -32,8 +32,8 @@ export default class TabManager {
   public setUserId(id: string) {
     this.mainTab.setUserId(id);
   }
-  public addTab(url = RECENT_FILES, title?: string): Tab {
-    const tab = new Tab(this.windowId);
+  public addTab(url = RECENT_FILES, title?: string, owner: Types.TabOwner = "user"): Tab {
+    const tab = new Tab(this.windowId, owner);
 
     tab.title = title;
     tab.loadUrl(url);
@@ -293,7 +293,8 @@ export default class TabManager {
       this.communityTab.setBounds(bounds);
     }
 
-    for (const [_, tab] of this.tabs) {
+    for (const [id, tab] of this.tabs) {
+      if (tab.owner === "mcp" && id !== this.lastFocusedTab) continue;
       tab.setBounds(bounds);
     }
   }

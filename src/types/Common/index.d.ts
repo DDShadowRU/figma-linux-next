@@ -1,5 +1,7 @@
 declare namespace Types {
   type EditorType = "design" | "figjam" | "slides" | "buzz" | "site" | "make" | "prototype";
+  /** Who opened the tab: the user, or the MCP server on behalf of an AI agent. */
+  type TabOwner = "user" | "mcp";
 
   /** Runtime state of the MCP integrations, reported to the settings UI. */
   interface McpStatus {
@@ -17,6 +19,7 @@ declare namespace Types {
     fileKey?: string;
     editorType?: EditorType;
     isLibrary?: boolean;
+    owner?: TabOwner;
     order?: number;
     focused?: boolean;
     isUsingMicrophone?: boolean;
@@ -181,7 +184,6 @@ declare namespace Types {
     mcp: {
       serverEnabled: boolean;
       serverPort: number;
-      enableWriteTools: boolean;
       cdpEnabled: boolean;
       remoteDebugPort: number;
     };

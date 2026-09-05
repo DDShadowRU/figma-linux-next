@@ -52,7 +52,6 @@ export const BASE_DEFAULT_SETTINGS: Types.SettingsInterface = {
   mcp: {
     serverEnabled: true,
     serverPort: 3845,
-    enableWriteTools: false,
     cdpEnabled: false,
     remoteDebugPort: 9222,
   },

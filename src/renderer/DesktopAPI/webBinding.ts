@@ -320,9 +320,6 @@ const publicAPI: any = {
   },
   sendMCPUpdate(args: any) {
     if (import.meta.env.DEV) console.debug("[MCP] sendMCPUpdate:", JSON.stringify(args));
-    // Forward context updates to main process so McpServer can serve them.
-    // Known updateTypes: "tool_list" (tool list sync), future: "selection" (selected nodes).
-    sendMsgToMain("mcpContextUpdate", args);
     return { data: null as null };
   },
 

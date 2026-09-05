@@ -23,6 +23,7 @@ import {
 } from "Utils/Common";
 import { panelUrlDev, panelUrlProd, resolveFrameStyle, toggleDetachedDevTools } from "Utils/Main";
 import { computeTabPreviewBounds, displayUrl, type PreviewAnchor } from "Utils/Main/tabPreview";
+import type { McpTabHandle } from "Main/MCP";
 import Tab from "./Tab";
 import type MainTab from "./MainTab";
 import type CommunityTab from "./CommunityTab";
@@ -31,6 +32,8 @@ import type CommunityTab from "./CommunityTab";
 const EXPORT_QUEUE_ATTACH_DELAY_MS = 400;
 /** Attach the export-queue tab regardless, so a failed load can't leave it hidden. */
 const EXPORT_QUEUE_ATTACH_TIMEOUT_MS = 8000;
+/** Side of the square an unfocused mcp tab is parked in, in px. */
+const MCP_TAB_PARKED_SIZE = 1;
 
 export default class Window {
   private window: BrowserWindow;
@@ -194,6 +197,7 @@ export default class Window {
     const tabs: Types.SavedTab[] = [];
 
     for (const [_, tab] of this.tabs) {
+      if (tab.owner === "mcp") continue;
       tabs.push({
         title: tab.title,
         url: tab.url,
@@ -279,6 +283,7 @@ export default class Window {
     const key = getTabDedupKey(url);
     if (!key) return undefined;
     for (const tab of this.tabManager.getAll().values()) {
+      if (tab.owner === "mcp") continue;
       const storedKey = tab.url ? getTabDedupKey(tab.url) : null;
       const liveKey = getTabDedupKey(tab.getUrl());
       if (storedKey === key || liveKey === key) return tab;
@@ -469,10 +474,11 @@ export default class Window {
       id: tabId,
       title: tab instanceof Tab ? tab.title : "",
       url,
+      owner: tab instanceof Tab ? tab.owner : "user",
     };
   }
 
-  public addTab(url: string, title?: string) {
+  public addTab(url: string, title?: string, owner: Types.TabOwner = "user") {
     const parsedUrl = parseURL(url);
     if (!parsedUrl) {
       logger.warn(`addTab: invalid URL "${url}", skipping`);
@@ -480,9 +486,9 @@ export default class Window {
     }
     parsedUrl.searchParams.set("fuid", this._userId);
 
-    const tab = this.tabManager.addTab(parsedUrl.toString(), title);
+    const tab = this.tabManager.addTab(parsedUrl.toString(), title, owner);
     tab.view.setBackgroundColor(this.figmaThemeBgColor);
-    this.attachHidden(tab.view);
+    if (owner !== "mcp") this.attachHidden(tab.view);
 
     // Non-Figma tabs (chrome://gpu, about:*) don't run figmaApi, so Figma's
     // setLoading IPC never arrives. Without this flag the renderer skeleton
@@ -492,7 +498,7 @@ export default class Window {
     this.window.webContents.send("didTabAdd", {
       id: tab.id,
       url,
-      title,
+      title: tab.displayTitle,
       editorType: tab.editorType,
       loading: isFigma,
     });
@@ -502,6 +508,60 @@ export default class Window {
     }
 
     return tab;
+  }
+
+  /**
+   * Open a file for the MCP server in a tab of its own, in the background.
+   * These tabs are never shared with the user's: findTabForUrl skips them for
+   * the user's opens, and the MCP registry is the only thing that dedups them.
+   */
+  public openMcpFile(fileKey: string): McpTabHandle | null {
+    const tab = this.addTab(`${HOMEPAGE}/file/${fileKey}`, undefined, "mcp");
+    if (!tab) return null;
+
+    this.mountMcpTab(tab);
+
+    const wc = tab.view.webContents;
+    return {
+      id: tab.id,
+      exec: (script) => wc.executeJavaScript(script),
+      getUrl: () => wc.getURL(),
+      isDestroyed: () => wc.isDestroyed(),
+      onDestroyed: (callback) => {
+        wc.once("destroyed", callback);
+      },
+      close: () => {
+        if (wc.isDestroyed()) return;
+        this.closeTab(tab.id);
+        this.tabWasClosed(tab.id);
+      },
+    };
+  }
+
+  /**
+   * Where an mcp tab lives while it is not the focused one. Figma only brings
+   * up the Plugin API in a page whose document is visible, and Chromium marks
+   * a WebContentsView hidden both when it is detached and when a sibling view
+   * covers it completely (verified: detached, or parked under the focused
+   * tab, the file loads but `window.figma` never appears). So the view is
+   * shrunk to a pixel and parked in the panel strip, where no tab view can
+   * cover it, at an x offset unique to the tab so parked tabs never cover
+   * each other. Modal views (settings, changelog) do cover it while open; the
+   * session re-probes and recovers once they close. Unlike a user tab, which
+   * is hidden while another one is on screen, a parked mcp tab stays shown —
+   * setVisible(false) is what detaching used to be.
+   */
+  private mountMcpTab(tab: Tab) {
+    if (!this.window.contentView.children.includes(tab.view)) {
+      this.window.contentView.addChildView(tab.view, 0);
+    }
+    tab.setBounds({
+      x: tab.id * MCP_TAB_PARKED_SIZE,
+      y: 0,
+      width: MCP_TAB_PARKED_SIZE,
+      height: MCP_TAB_PARKED_SIZE,
+    });
+    tab.view.setVisible(true);
   }
 
   /**
@@ -852,7 +912,10 @@ export default class Window {
 
     this.tabManager.setTitle(tab.id, title);
     if (tab?.view?.webContents) {
-      this.window.webContents.send("setTitle", { id: tab.view.webContents.id, title });
+      this.window.webContents.send("setTitle", {
+        id: tab.view.webContents.id,
+        title: tab instanceof Tab ? tab.displayTitle : title,
+      });
     }
   }
   public openFile(event: IpcMainEvent, ...args: string[]) {
@@ -1026,18 +1089,24 @@ export default class Window {
    * either way). Hidden views neither paint nor occlude, so their z-order is
    * irrelevant; overlays raise themselves on show (see TabPreviewView).
    * The outgoing tab's hover-preview snapshot is fired before it is hidden.
+   * An outgoing mcp tab is parked instead of hidden: it has no preview and it
+   * needs to stay shown for Figma to keep its Plugin API up (see mountMcpTab).
    */
   private swapTo(next: Tab | MainTab | CommunityTab) {
     const previous = this.shownTab();
     if (previous && previous !== next) {
-      if (
-        previous instanceof Tab &&
-        storage.settings.app.tabHoverPreviews &&
-        this.tabManager.getAll().has(previous.id)
-      ) {
-        void previous.captureThumbnail();
+      if (previous instanceof Tab && previous.owner === "mcp") {
+        this.mountMcpTab(previous);
+      } else {
+        if (
+          previous instanceof Tab &&
+          storage.settings.app.tabHoverPreviews &&
+          this.tabManager.getAll().has(previous.id)
+        ) {
+          void previous.captureThumbnail();
+        }
+        previous.view.setVisible(false);
       }
-      previous.view.setVisible(false);
     }
     if (!this.window.contentView.children.includes(next.view)) {
       this.window.contentView.addChildView(next.view);

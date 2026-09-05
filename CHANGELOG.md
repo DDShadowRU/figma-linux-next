@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **MCP server rebuilt on the official MCP SDK and addressed by file key.** Tools no longer act on
+  whatever tab happens to be active: every tool takes a `fileKey`, and the app opens that file in a
+  background tab of its own — labelled `[mcp] <file name>` in the tab strip — waits for it to load,
+  and keeps it for later calls. One file is one tab, shared by every assistant that asks for it;
+  your own tabs are never reused, and an mcp tab is never restored on restart or offered under
+  "reopen closed tab". A key that Figma answers with 404 or 403 fails within seconds and its tab
+  is closed again. The hand-written protocol layer and its tool set (design context,
+  screenshots, write tools, Mermaid→FigJam) are gone; the new server starts with `get_file_name`
+  and grows from there. The "Enable write tools" setting went with them.
+
+### Under the hood
+
+- `@modelcontextprotocol/server` 2 and `@modelcontextprotocol/node` replace the in-house JSON-RPC /
+  Streamable HTTP implementation. The server is stateless — a fresh `McpServer` per request — and
+  the file registry lives in the app, so two clients asking for one file share one tab and one wait.
+- An unfocused mcp tab is kept attached at 1×1 px in the panel strip rather than detached: Figma
+  only brings up its Plugin API in a visible document, and Chromium treats a view that is detached
+  or fully covered by a sibling view as hidden.
+
 ## [0.20.1] - 2026-09-08
 
 A polish release from testing on Plasma and Pantheon: the tray icon works from the Flatpak

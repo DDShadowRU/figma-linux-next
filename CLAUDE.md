@@ -116,7 +116,7 @@ The application is a classic Electron app with two processes:
 - System fonts (FontManager)
 - Persistent settings (Storage)
 - Dialogs (Native or Zenity backends)
-- MCP server for AI assistant integration (McpServer)
+- MCP server for AI assistant integration (McpService)
 
 **Renderer Process** (`src/renderer/`) - Browser frontend with two Svelte apps:
 - **Panel** (`src/renderer/Panel/`) - Top toolbar UI with tabs
@@ -191,10 +191,16 @@ new App(new WindowManager(), new Session(), new FontManager());
 - Provider pattern: Native (Electron dialogs) or Zenity (GTK dialogs)
 - `dialogs.switchProvider(useZenity)` switches at runtime; controlled by `settings.app.useZenity`
 
-**MCP Server** (`src/main/MCP/McpServer.ts`):
-- MCP protocol (JSON-RPC 2.0 over Streamable HTTP) on port **3845**
-- Exposes Figma design context to AI assistants via `webContents.executeJavaScript()`
-- Started in `App.ready()`
+**MCP Server** (`src/main/MCP/McpService.ts`):
+- Built on the official SDK v2: `@modelcontextprotocol/server` (stateless `createMcpHandler`, a fresh
+  `McpServer` per request) + `@modelcontextprotocol/node`; Streamable HTTP on port **3845**, loopback only
+- Tools are addressed by `fileKey`, never by "the active tab". `McpFileRegistry` opens each file once
+  in a tab of its own (`Window.openMcpFile` → `Tab.owner === "mcp"`) and shares it between clients;
+  `McpFileSession` waits for `window.figma` and runs scripts via `webContents.executeJavaScript()`
+- mcp tabs show in the panel with a `[mcp] ` prefix (`Tab.displayTitle`); they are skipped by the
+  user's open-file dedup (`Window.findTabForUrl`), by tab persistence (`Window.getState`) and by
+  closed-tab history (`WindowManager.handleCloseTab`)
+- Started in `App.ready()`; `App` adapts `WindowManager` to the `McpTabHost` port
 
 **UrlHandlerIntegration** (`src/main/UrlHandlerIntegration.ts`):
 - Makes sure `figma://` reaches the app when no package registered it: an AppImage always writes/refreshes its own `.desktop` (path may move); a bare binary (`nix run`, unpacked zip) writes a "local" entry only if `xdg-mime` reports no handler at all. Flatpak and dev are skipped. Rules live in the pure `planUrlHandler()` (unit-tested)
@@ -325,7 +331,7 @@ Custom switches can be added in settings under `app.commandSwitches`.
 | `src/main/Ui/Window.ts` | Single window: BrowserWindow + TabManager + warm tab |
 | `src/main/Ui/TabManager.ts` | Tab management per window |
 | `src/main/Dialogs/index.ts` | Dialog provider (Native / Zenity) |
-| `src/main/MCP/McpServer.ts` | MCP protocol server (port 3845) |
+| `src/main/MCP/McpService.ts` | MCP server facade (port 3845): HTTP transport + fileKey-addressed file registry |
 | `src/main/UrlHandlerIntegration.ts` | figma:// handler registration for AppImage / bare-binary launches |
 | `src/main/ExtensionManager.ts` | Plugin system with hot-reloading |
 | `src/renderer/Panel/App.svelte` | Main toolbar UI |
@@ -387,6 +393,15 @@ a background tab on demand; `tab.thumbnail` is the only source the hover card ha
 
 ### openFile must close the New File tab
 `Window.openFile()` must call `closeNewFileTab()` after opening the file tab. Without this, the New File tab stays visible as a leftover. `createFile()` already does this — keep them consistent.
+
+### The Plugin API needs a visible view — mcp tabs are parked, not detached
+Figma only initializes `window.figma` in a page whose document is visible, and Chromium reports a
+`WebContentsView` hidden both when it is detached from the window and when a sibling view covers it
+completely (verified live: detached, or mounted under the focused tab, the file loads but every tool
+times out with `visibility: hidden`). `Window.mountMcpTab()` therefore keeps an unfocused mcp tab
+attached at 1×1 px in the panel strip, at `x = tab.id` so parked tabs never cover each other, and
+`detachLastFocusedTab()` re-parks an mcp tab instead of removing it. Modal views (settings, changelog)
+do cover it while open; `McpFileSession.ensureReady()` re-probes on every call and recovers.
 
 ### app.whenReady() not app.on('ready', ...)
 Always use `app.whenReady().then(...)` for the Electron ready handler. `app.on('ready', ...)` silently misses the event if registration is delayed (e.g. async startup). `app.whenReady()` resolves immediately if the app is already ready.

@@ -69,6 +69,10 @@ export default defineConfig({
                 "electron-log/main",
                 "crypto",
                 "url",
+                "node:http",
+                "@modelcontextprotocol/server",
+                "@modelcontextprotocol/node",
+                /^zod(\/.*)?$/,
               ],
               output: {
                 entryFileNames: "main.js",

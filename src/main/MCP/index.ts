@@ -1,2 +1,3 @@
-export { McpServer } from "./McpServer";
-export type { FigmaViewProvider } from "./types";
+export { McpService } from "./McpService";
+export { MCP_PORT } from "./config";
+export type { McpTabHandle, McpTabHost } from "./files/ports";

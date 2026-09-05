@@ -12,6 +12,7 @@ import { isPreviewAnchor } from "Utils/Main/tabPreview";
 import { isMenuAnchor } from "Utils/Main/menuPosition";
 import { ipcRegistry } from "Main/controllers/registry";
 import { logger } from "Main/Logger";
+import type { McpTabHandle } from "Main/MCP";
 
 export default class WindowManager {
   private menuManager: MenuManager;
@@ -58,6 +59,12 @@ export default class WindowManager {
 
   public getLastFocusedWindow(): Window | undefined {
     return this.windows.get(this.lastFocusedwindowId);
+  }
+
+  /** Open a file for the MCP server in the last focused window (any window if focus is unknown). */
+  public openMcpFile(fileKey: string): McpTabHandle | null {
+    const window = this.getLastFocusedWindow() ?? this.windows.values().next().value;
+    return window?.openMcpFile(fileKey) ?? null;
   }
 
   public closeSettingsViewForLastWindow() {
@@ -426,7 +433,7 @@ export default class WindowManager {
   private handleCloseTab(window: Window, tabId: number) {
     const tabInfo = window.getTabInfo(tabId);
 
-    if (tabInfo && tabInfo.title !== NEW_FILE_TAB_TITLE) {
+    if (tabInfo && tabInfo.title !== NEW_FILE_TAB_TITLE && tabInfo.owner !== "mcp") {
       this.closedTabs.delete(tabInfo.title);
       this.closedTabs.set(tabInfo.title, {
         title: tabInfo.title,
