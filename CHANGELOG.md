@@ -41,8 +41,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   your own tabs are never reused, and an mcp tab is never restored on restart or offered under
   "reopen closed tab". A key that Figma answers with 404 or 403 fails within seconds and its tab
   is closed again. The hand-written protocol layer and its tool set (design context,
-  screenshots, write tools, Mermaid→FigJam) are gone; the new server starts with `get_file_name`
-  and grows from there. The "Enable write tools" setting went with them.
+  screenshots, write tools, Mermaid→FigJam) are gone; the new server's tools are the ones listed
+  above. The "Enable write tools" setting went with them.
 
 ### Under the hood
 

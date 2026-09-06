@@ -18,16 +18,6 @@ export const FILE_STATE_SCRIPT = `(() => {
   }
 })()`;
 
-export const GET_FILE_NAME_SCRIPT = `(() => {
-  try {
-    const figma = window.figma;
-    if (!figma || !figma.root) return JSON.stringify({ error: "Figma Plugin API is not available" });
-    return JSON.stringify({ name: figma.root.name });
-  } catch (e) {
-    return JSON.stringify({ error: String((e && e.message) || e) });
-  }
-})()`;
-
 export const TAB_STATE_SCRIPT = `(() => {
   try {
     return JSON.stringify({

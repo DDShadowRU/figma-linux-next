@@ -197,9 +197,9 @@ new App(new WindowManager(), new Session(), new FontManager());
 - Tools are addressed by `fileKey`, never by "the active tab". `McpFileRegistry` opens each file once
   in a tab of its own (`Window.openMcpFile` → `Tab.owner === "mcp"`) and shares it between clients;
   `McpFileSession` waits for `window.figma` and runs scripts via `webContents.executeJavaScript()`
-- Tools: `get_file_name`, `get_design` (one node → text tree, below), `get_screenshot` (one node →
-  PNG image block, longest edge fitted into `[SCREENSHOT_MIN_EDGE, SCREENSHOT_MAX_EDGE]`) and
-  `download_assets` (up to `MAX_ASSET_NODES` nodes → png/jpg/svg files). The last two run one in-tab
+- Tools: `get_design` (one node → text tree, below), `get_screenshot` (one node → PNG image block,
+  longest edge fitted into `[SCREENSHOT_MIN_EDGE, SCREENSHOT_MAX_EDGE]`) and `download_assets` (up
+  to `MAX_ASSET_NODES` nodes → png/jpg/svg files). The last two run one in-tab
   script, `buildExportNodesScript()` (`scripts/exportNodes.ts`): it resolves ids with
   `getNodeByIdAsync`, exports sequentially under a time/byte budget and returns base64 or SVG text;
   `tools/exportErrors.ts` turns its per-node error codes (and `exportDesign`'s) into messages

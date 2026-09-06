@@ -7,7 +7,7 @@ description: |
   skill whenever a task means working with a real Figma file through the running app: reading a file
   by key, checking what the app did with an mcp tab, driving or screenshotting the window, or
   debugging why a tool call timed out. Trigger it even when the user doesn't name the MCPs — any
-  "drive Figma", "look at this file", "why does get_file_name hang" request in this app belongs here.
+  "drive Figma", "look at this file", "why does get_design hang" request in this app belongs here.
 ---
 
 # Driving figma-linux-next with two MCPs
@@ -42,9 +42,9 @@ never restored on restart and never appear in "reopen closed tab".
 
 ## Recipes
 
-**Read a file** — `get_file_name({ fileKey })`. First call on a file takes ~5–10 s (tab opens and
-Figma boots); later calls answer in well under a second. Where to get a key: the URL the user gave
-you, or `fetch('/api/recent_files')` evaluated in the Recents page over CDP (`"key"` fields).
+**Open a file** — every tool takes a `fileKey`, and the first call on a file takes ~5–10 s (tab
+opens and Figma boots); later calls answer in well under a second. Where to get a key: the URL the
+user gave you, or `fetch('/api/recent_files')` evaluated in the Recents page over CDP (`"key"` fields).
 
 **Read a design** — `get_design({ fileKey, nodeId })`. The text block is a Framelink-style tree:
 `GLOBAL_VARS` (shared styles, keyed by Figma style name or a content hash), `ELEMENTS` (repeated
@@ -111,8 +111,7 @@ Figma MCP keeps working.
 
 ## Tool quick-reference
 
-**Figma MCP:** `get_file_name({ fileKey }) → { name }`;
-`get_design({ fileKey, nodeId, depth? }) → text tree (cut nodes marked children=…)`;
+**Figma MCP:** `get_design({ fileKey, nodeId, depth? }) → text tree (cut nodes marked children=…)`;
 `get_screenshot({ fileKey, nodeId }) → image + { node, image, scale }`;
 `download_assets({ fileKey, nodes[], format?, scale? }) → { files[{ nodeId, name, path, width, height }], failed[] }`
 plus a `resource_link` per file. Every tool takes `fileKey` the same way.
