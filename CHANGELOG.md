@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`get_design` MCP tool.** `get_design({ fileKey, nodeId, depth? })` returns one node as a compact
+  text tree of layout, text, fills, strokes, effects and component references — the `tree` format
+  of Framelink's figma-context-mcp, whose transformer (`figma-developer-mcp`) is bundled into the
+  app and fed from the live Plugin API instead of the REST API. Shared styles are hoisted into a
+  `GLOBAL_VARS` table under their Figma style names, repeated subtrees into `ELEMENTS`, vector
+  containers collapse to `IMAGE-SVG` nodes to fetch with `download_assets`. A node too big for one
+  response (about 64 KB) is cut by depth: nodes with more inside are marked `children=…` and can be
+  requested by id.
 - **`get_screenshot` and `download_assets` MCP tools.** `get_screenshot({ fileKey, nodeId })` renders
   one node to a PNG sized for viewing and returns it as an image together with the node's design
   size, the image size and the scale between them. `download_assets({ fileKey, nodes, format?, scale? })`

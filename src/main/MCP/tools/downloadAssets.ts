@@ -155,8 +155,8 @@ export function registerDownloadAssets(server: McpServer, ctx: ToolContext) {
         const taken = new Set<string>();
         const exported: Exported[] = [];
         const failed: z.infer<typeof outputSchema>["failed"] = [];
-        for (const [index, item] of items.entries()) {
-          const error = exportErrorMessage(item, fileKey, nodes[index]);
+        for (const item of items) {
+          const error = exportErrorMessage(item, fileKey);
           if (error) {
             failed.push({ nodeId: item.id, error });
             continue;

@@ -17,4 +17,9 @@ export const MAX_ASSET_NODES = 20;
 export const ASSET_MIN_SCALE = 0.1;
 export const ASSET_MAX_SCALE = 4;
 export const EXPORT_BUDGET = { timeMs: 45_000, bytes: 64 * 1024 * 1024 };
+export const DESIGN_RAW_MAX_BYTES =
+  Number(process.env.FIGMA_MCP_DESIGN_RAW_MAX_BYTES) || 48 * 1024 * 1024;
+export const DESIGN_MAX_OUTPUT_BYTES =
+  Number(process.env.FIGMA_MCP_DESIGN_MAX_OUTPUT_BYTES) || 64 * 1024;
+export const DESIGN_MAX_DEPTH = 50;
 export const ASSET_DIR_NAME = "figma-mcp-assets";

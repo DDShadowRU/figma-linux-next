@@ -24,10 +24,7 @@ export function registerGetScreenshot(server: McpServer, ctx: ToolContext) {
     "get_screenshot",
     {
       title: "Get screenshot",
-      description:
-        "Renders one node of a Figma file (frame, section, page, component, instance…) to a PNG " +
-        "for viewing. Returns the image, the node's size in design pixels, the image size and the " +
-        "scale between them.",
+      description: "Render one node of a Figma file to a PNG for viewing",
       inputSchema,
       outputSchema,
       annotations: { readOnlyHint: true, openWorldHint: false },
@@ -40,7 +37,7 @@ export function registerGetScreenshot(server: McpServer, ctx: ToolContext) {
         const render = async (maxEdge: number) => {
           const fit = { min: SCREENSHOT_MIN_EDGE, max: maxEdge };
           const [item] = await exportNodes(session, [{ id, spec: { format: "PNG", fit } }]);
-          const error = exportErrorMessage(item, fileKey, nodeId);
+          const error = exportErrorMessage(item, fileKey);
           if (error) throw new Error(error);
           return item;
         };

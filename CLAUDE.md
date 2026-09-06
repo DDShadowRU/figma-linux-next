@@ -197,11 +197,30 @@ new App(new WindowManager(), new Session(), new FontManager());
 - Tools are addressed by `fileKey`, never by "the active tab". `McpFileRegistry` opens each file once
   in a tab of its own (`Window.openMcpFile` → `Tab.owner === "mcp"`) and shares it between clients;
   `McpFileSession` waits for `window.figma` and runs scripts via `webContents.executeJavaScript()`
-- Tools: `get_file_name`, `get_screenshot` (one node → PNG image block, longest edge fitted into
-  `[SCREENSHOT_MIN_EDGE, SCREENSHOT_MAX_EDGE]`) and `download_assets` (up to `MAX_ASSET_NODES` nodes →
-  png/jpg/svg files). Both run one in-tab script, `buildExportNodesScript()` (`scripts/exportNodes.ts`):
-  it resolves ids with `getNodeByIdAsync`, exports sequentially under a time/byte budget and returns
-  base64 or SVG text; `tools/exportErrors.ts` turns its per-node error codes into messages
+- Tools: `get_file_name`, `get_design` (one node → text tree, below), `get_screenshot` (one node →
+  PNG image block, longest edge fitted into `[SCREENSHOT_MIN_EDGE, SCREENSHOT_MAX_EDGE]`) and
+  `download_assets` (up to `MAX_ASSET_NODES` nodes → png/jpg/svg files). The last two run one in-tab
+  script, `buildExportNodesScript()` (`scripts/exportNodes.ts`): it resolves ids with
+  `getNodeByIdAsync`, exports sequentially under a time/byte budget and returns base64 or SVG text;
+  `tools/exportErrors.ts` turns its per-node error codes (and `exportDesign`'s) into messages
+- `get_design({ fileKey, nodeId, depth? })` reuses Framelink's transformer: the npm package
+  `figma-developer-mcp` (GLips/Figma-Context-MCP, MIT) is an **exact-pinned devDependency** that
+  Rollup inlines into `main.js` (it is not in `rollupOptions.external`, so it never reaches
+  `src/package.json` or `dist/node_modules`; `flatpak/package.json` mirrors the pin because the
+  Flatpak build runs `vite build` offline). `scripts/exportDesign.ts` gets a REST-shaped node from
+  the tab via `node.exportAsync({ format: "JSON_REST_V1" })` (page loaded first; an orphaned main
+  component exports with no children — a Figma limitation), prunes children below `depth` in-tab
+  and caps the raw JSON at `DESIGN_RAW_MAX_BYTES`; `design/simplify.ts` runs
+  `simplifyRawFigmaObject` + `collapseSvgContainers` and `tidyDesign()` strips `imageRef`/download
+  hints (assets are fetched by node id), empty values and opacity float noise;
+  `design/serializeTree.ts` is our own renderer of Framelink's `tree` format (`[TYPE] "name" #id
+  key=value…`, shared `GLOBAL_VARS`/`ELEMENTS` tables) because the package doesn't export its
+  serializers. Output over `DESIGN_MAX_OUTPUT_BYTES` is cut by depth (binary search on the deepest
+  level that fits): every node whose children were left out gets `children=…` on its line and the
+  text ends with a one-line `TRUNCATED:` note. The reply is that single text block — no
+  `outputSchema`, so `runTool` skips its JSON tail when a tool returns no `output` (the
+  description is one sentence, like Framelink's). Variables (`boundVariables` → names) and
+  Plugin-API named styles are deliberately not wired yet
 - Node ids accept `1015:50826`, the URL form `1015-50826` and instance children `I…;…`.
   `normalizeNodeId()` maps dashes to colons in the tool body, not in zod: a `.transform()` would not
   survive the SDK's JSON-Schema conversion for `tools/list`
@@ -375,6 +394,8 @@ Custom switches can be added in settings under `app.commandSwitches`.
 | `src/main/Dialogs/index.ts` | Dialog provider (Native / Zenity) |
 | `src/main/MCP/McpService.ts` | MCP server facade (port 3845): HTTP transport + fileKey-addressed file registry + temp asset store |
 | `src/main/MCP/scripts/exportNodes.ts` | The in-tab export script (`buildExportNodesScript()`) and its wire types, shared by `get_screenshot` / `download_assets` |
+| `src/main/MCP/scripts/exportDesign.ts` | The in-tab `JSON_REST_V1` export behind `get_design` (page load, depth pruning, raw size cap) |
+| `src/main/MCP/design/` | `get_design` pipeline: `simplify.ts` (figma-developer-mcp + `tidyDesign`, cut-node detection), `serializeTree.ts` (Framelink `tree` renderer) |
 | `src/main/UrlHandlerIntegration.ts` | figma:// handler registration for AppImage / bare-binary launches |
 | `src/main/ExtensionManager.ts` | Plugin system with hot-reloading |
 | `src/renderer/Panel/App.svelte` | Main toolbar UI |

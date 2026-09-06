@@ -45,6 +45,17 @@ restored on restart and never appear in "reopen closed tab".
 Figma boots); later calls answer in well under a second. Where to get a key: the URL the user gave
 you, or `fetch('/api/recent_files')` evaluated in the Recents page over CDP (`"key"` fields).
 
+**Read a design** — `get_design({ fileKey, nodeId })`. The text block is a Framelink-style tree:
+`GLOBAL_VARS` (shared styles, keyed by Figma style name or a content hash), `ELEMENTS` (repeated
+node bodies referenced as `template=EL-…`), `COMPONENTS`, then `NODES` with one line per node —
+`[TYPE] "name" #id layout=… fills=… text=…`, two spaces per level. `IMAGE-SVG` is a vector container
+collapsed to one node: pull it with `download_assets(svg)`; nodes with `{"type":"IMAGE"}` fills are
+rasters, pull them as png. A big node is cut by depth to fit ~64 KB: a node whose subtree was left
+out ends its line with `children=…` (request it by id to read inside) and the text ends with a
+`TRUNCATED: …` note. The reply is one text block, no JSON. `depth` exists but is for explicit
+requests only. A whole 14-level page renders in about a second; a hidden node, `0:0` and an
+unknown id are errors, an orphaned main component (deleted from the canvas) comes back childless.
+
 **Look at a node** — `get_screenshot({ fileKey, nodeId })`. The PNG arrives as an image block; the
 JSON next to it carries `node` (design px), `image` (px) and `scale` between them — use `scale` when
 measuring on the picture. Node ids: `1015:50826`, the URL form `1015-50826` (`node-id=…`), or an
@@ -96,6 +107,7 @@ tab; leaving it parks it again and the Figma MCP keeps working.
 ## Tool quick-reference
 
 **Figma MCP:** `get_file_name({ fileKey }) → { name }`;
+`get_design({ fileKey, nodeId, depth? }) → text tree (cut nodes marked children=…)`;
 `get_screenshot({ fileKey, nodeId }) → image + { node, image, scale }`;
 `download_assets({ fileKey, nodes[], format?, scale? }) → { files[{ nodeId, name, path, width, height }], failed[] }`
 plus a `resource_link` per file. Every tool takes `fileKey` the same way.

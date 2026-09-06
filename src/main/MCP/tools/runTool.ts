@@ -2,7 +2,7 @@ import type { CallToolResult, ContentBlock } from "@modelcontextprotocol/server"
 import { logger } from "Main/Logger";
 
 export interface ToolResult<T extends Record<string, unknown>> {
-  output: T;
+  output?: T;
   content?: ContentBlock[];
 }
 
@@ -13,6 +13,7 @@ export async function runTool<T extends Record<string, unknown>>(
 ): Promise<CallToolResult> {
   try {
     const { output, content = [] } = await body();
+    if (output === undefined) return { content };
     return {
       content: [...content, { type: "text", text: JSON.stringify(output) }],
       structuredContent: output,

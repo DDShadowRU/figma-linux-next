@@ -17,7 +17,9 @@
     "electron"
   ],
   "devDependencies": {
+    "@figma/rest-api-spec": "0.37.0",
     "@sveltejs/vite-plugin-svelte": "^7.3.0",
+    "figma-developer-mcp": "0.13.2",
     "@tsconfig/svelte": "^5.0.8",
     "svelte": "^5.57.0",
     "svelte-preprocess": "^6.0.5",
