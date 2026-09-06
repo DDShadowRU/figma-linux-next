@@ -287,6 +287,7 @@ export default class WindowManager {
     // Menu operations
     ipcRegistry.on("openMainMenu", this.openMainMenuHandler.bind(this), "WindowManager");
     ipcRegistry.on("openTabMenu", this.openTabMenuHandler.bind(this), "WindowManager");
+    ipcRegistry.on("openMcpMenu", this.openMcpMenuHandler.bind(this), "WindowManager");
     ipcRegistry.on("openMainTabMenu", this.openMainTabMenuHandler.bind(this), "WindowManager");
     ipcRegistry.on(
       "openCommunityTabMenu",
@@ -558,6 +559,19 @@ export default class WindowManager {
     if (!tabInfo) return;
 
     this.menuManager.openTabMenuHandler(window.win, tabId, tabInfo.url);
+  }
+  private openMcpMenuHandler(event: IpcMainEvent) {
+    const window = this.getWindowByWebContentsId(event.sender.id);
+    if (!window) return;
+    const tabs = window.mcpTabs;
+    if (tabs.length === 0) return;
+
+    this.menuManager.openMcpMenuHandler(window.win, tabs, {
+      show: (id) => window.setTabFocus(id),
+      closeAll: () => {
+        for (const tab of tabs) this.handleCloseTab(window, tab.id);
+      },
+    });
   }
   private openMainTabMenuHandler(_: IpcMainEvent) {
     const window = this.windows.get(this.lastFocusedwindowId);

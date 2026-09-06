@@ -37,8 +37,9 @@ export function registerGetDesign(server: McpServer, ctx: ToolContext) {
     ({ fileKey, nodeId, depth }) =>
       runTool("get_design", async () => {
         const id = normalizeNodeId(nodeId);
-        const session = await ctx.files.open(fileKey);
-        const item = await exportDesign(session, id, depth);
+        const item = await ctx.files.withFile(fileKey, (session) =>
+          exportDesign(session, id, depth),
+        );
         const error = exportErrorMessage(item, fileKey);
         if (error) throw new Error(error);
         const text = await renderWithinBudget(item, depth);

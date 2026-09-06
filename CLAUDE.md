@@ -252,9 +252,25 @@ new App(new WindowManager(), new Session(), new FontManager());
   `androidResourceName()`
 - Tool descriptions are agent-facing only: inputs, outputs, what is temporary. Internals (parked
   tabs, the Plugin API, fit/scale logic) don't belong in them
-- mcp tabs show in the panel with a `[mcp] ` prefix (`Tab.displayTitle`); they are skipped by the
-  user's open-file dedup (`Window.findTabForUrl`), by tab persistence (`Window.getState`) and by
-  closed-tab history (`WindowManager.handleCloseTab`)
+- mcp tabs never appear in the panel's tab strip: `Window.addTab()` sends `didTabAdd` only for
+  user tabs, and the strip's store drops every later per-tab event (`setTitle`, `setLoading`,
+  `setTabType`, mic/voice) for an id it never saw, so nothing else is guarded; only `setTabTitle`
+  routes an mcp title to `syncMcpTabs()`. `Window.syncMcpTabs()` sends `setMcpTabs`
+  (`{ id, title, busy }[]`, the title starts as the fileKey until Figma reports one) on open, title
+  change, close and `frontReady`; the
+  panel keeps it in the `mcpTabs` store and `McpIndicator.svelte` renders a plug icon (`Icons/Mcp`)
+  with the count on the right of the panel (hidden at 0, `data-mcp-tabs` carries the ids for CDP
+  scripts). Its click sends
+  `openMcpMenu` → `WindowManager.openMcpMenuHandler` → `MenuManager.openMcpMenuHandler`: a native
+  menu with one entry per file (click shows the tab full-size via `setTabFocus`; leaving it re-parks
+  it) and `Close all` (through `handleCloseTab`). While a call runs, the button plays a light sweep:
+  every tool does its in-tab work through `McpFileRegistry.withFile()`, which wraps it in
+  `McpFileSession.whileBusy()` (a depth counter → `McpTabHandle.setBusy()`), `busy` rides in
+  `setMcpTabs`, and the indicator keeps the CSS animation until the iteration in flight ends. `focusTab` still
+  reaches the panel with the mcp id so no strip tab stays highlighted. Ctrl+(Shift+)Tab and the
+  next-tab choice on close only see user tabs (`TabManager.userTabIds`); mcp tabs are also skipped
+  by the user's open-file dedup (`Window.findTabForUrl`), by tab persistence (`Window.getState`) and
+  by closed-tab history (`WindowManager.handleCloseTab`)
 - A parked mcp tab is a live Figma canvas, so `McpFileSession` closes its tab after
   `MCP_TAB_IDLE_TTL_MS` (15 min, `FIGMA_MCP_TAB_IDLE_TTL_MS`) with no tool-initiated work.
   `touch()` restarts the countdown from `McpFileRegistry.acquire()` and `execJson()` only —
@@ -463,8 +479,8 @@ Figma only initializes `window.figma` in a page whose document is visible, and C
 `WebContentsView` hidden both when it is detached from the window and when a sibling view covers it
 completely (verified live: detached, or mounted under the focused tab, the file loads but every tool
 times out with `visibility: hidden`). `Window.mountMcpTab()` therefore keeps an unfocused mcp tab
-attached at 1×1 px in the panel strip, at `x = tab.id` so parked tabs never cover each other, and
-`detachLastFocusedTab()` re-parks an mcp tab instead of removing it. Modal views (settings, changelog)
+attached at 1×1 px under the panel strip (which does not list it), at `x = tab.id` so parked tabs
+never cover each other, and `detachLastFocusedTab()` re-parks an mcp tab instead of removing it. Modal views (settings, changelog)
 do cover it while open; `McpFileSession.ensureReady()` re-probes on every call and recovers.
 
 ### app.whenReady() not app.on('ready', ...)

@@ -48,3 +48,4 @@ export { default as BreezeMinimize } from "./BreezeMinimize.svelte";
 export { default as BreezeMaximize } from "./BreezeMaximize.svelte";
 export { default as BreezeRestore } from "./BreezeRestore.svelte";
 export { default as BreezeMenu } from "./BreezeMenu.svelte";
+export { default as Mcp } from "./Mcp.svelte";

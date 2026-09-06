@@ -42,6 +42,12 @@ declare namespace Types {
     | "loading"
   >;
 
+  interface McpTabFront {
+    id: number;
+    title: string;
+    busy: boolean;
+  }
+
   interface AddTabProps {
     id: number;
     url: string;

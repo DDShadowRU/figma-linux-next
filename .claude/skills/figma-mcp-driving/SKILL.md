@@ -2,7 +2,7 @@
 name: figma-mcp-driving
 description: |
   Operate the LIVE figma-linux-next app through its two MCP surfaces — the built-in Figma MCP (HTTP on
-  127.0.0.1:<serverPort>, default 3845; tools addressed by fileKey, files opened in `[mcp]` tabs) and
+  127.0.0.1:<serverPort>, default 3845; tools addressed by fileKey, files opened in hidden mcp tabs) and
   chrome-figma (Chrome DevTools Protocol) as the control plane that drives the app window. Use this
   skill whenever a task means working with a real Figma file through the running app: reading a file
   by key, checking what the app did with an mcp tab, driving or screenshotting the window, or
@@ -16,14 +16,15 @@ description: |
 |---|---|---|
 | Plane | **Data** — Figma files by `fileKey` | **Control** — the app window |
 | Transport | Streamable HTTP, `POST /mcp` (any MCP client, curl) | `mcp__chrome-figma__*` via `--remote-debugging-port` |
-| Operates on | a file, opened by the app in its own `[mcp]` tab | any CDP page: panel, tabs, modals |
+| Operates on | a file, opened by the app in its own hidden mcp tab | any CDP page: panel, tabs, modals |
 
 **The Figma MCP does not follow the active tab.** Every tool takes a `fileKey` (the id in
-`figma.com/design/<fileKey>/…`). The app opens the file in a background tab titled `[mcp] <name>`,
-waits until Figma's Plugin API answers, and keeps that tab for later calls — from any client. Your
-own tabs are separate: the user opening the same file gets another tab, and the user's open-file
-flow never lands in an mcp tab. Close an mcp tab and the next call reopens it. mcp tabs are never
-restored on restart and never appear in "reopen closed tab".
+`figma.com/design/<fileKey>/…`). The app opens the file in a background tab that the tab strip does
+not list, waits until Figma's Plugin API answers, and keeps that tab for later calls — from any
+client. The plug button with a count on the right of the panel lists them; its native menu shows one or
+closes them all. Your own tabs are separate: the user opening the same file gets another tab, and the user's
+open-file flow never lands in an mcp tab. Close an mcp tab and the next call reopens it. mcp tabs are
+never restored on restart and never appear in "reopen closed tab".
 
 ## Preconditions
 
@@ -73,11 +74,15 @@ icons ask for `svg`: the markup is minified (svgo `preset-default`, ids not rena
 
 **Check what the app did** — chrome-figma `list_pages`; the panel is the `dist/index.html` page.
 Evaluate `[...document.querySelectorAll('[data-tab-id]')].map(e => e.innerText)` there to see the
-tab strip, including `[mcp] …` entries. Page ids in CDP are **not** tab ids: match by URL.
+user's tab strip (mcp tabs are not in it) and
+`document.querySelector('[data-mcp-tabs]')?.dataset.mcpTabs` for the comma-separated ids of the open
+mcp tabs (the element is absent when there are none; its `title` lists the file names). Page ids in
+CDP are **not** tab ids: match by URL.
 
 **Drive the UI** — from the panel page, `window.figmaApi.send('setTabFocus', <data-tab-id>)`,
-`send('setFocusToMainTab')`, `send('closeTab', <id>)`. Focusing an mcp tab shows it full-size like any
-tab; leaving it parks it again and the Figma MCP keeps working.
+`send('setFocusToMainTab')`, `send('closeTab', <id>)`. The same calls take an mcp tab id from
+`data-mcp-tabs`: focusing one shows it full-size like any tab; leaving it parks it again and the
+Figma MCP keeps working.
 
 **Debug a failed call** — read the error text before anything else:
 - *Figma answered 404* / *403* → wrong key, deleted file, or the account has no access. These fail

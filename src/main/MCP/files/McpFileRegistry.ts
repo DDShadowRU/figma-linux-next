@@ -16,21 +16,26 @@ export class McpFileRegistry {
     return this.sessions.size;
   }
 
-  /** Open (or reuse) the tab for fileKey and wait until its Plugin API answers. */
-  public async open(fileKey: string): Promise<McpFileSession> {
+  /**
+   * Open (or reuse) the tab for fileKey, wait until its Plugin API answers and
+   * run `work` on it. The tab reports busy for the whole call.
+   */
+  public withFile<T>(fileKey: string, work: (session: McpFileSession) => Promise<T>): Promise<T> {
     const session = this.acquire(fileKey);
-    try {
-      await session.ensureReady();
-    } catch (error) {
-      if (
-        error instanceof McpFileError &&
-        (error.code === "not_found" || error.code === "no_access")
-      ) {
-        session.close();
+    return session.whileBusy(async () => {
+      try {
+        await session.ensureReady();
+      } catch (error) {
+        if (
+          error instanceof McpFileError &&
+          (error.code === "not_found" || error.code === "no_access")
+        ) {
+          session.close();
+        }
+        throw error;
       }
-      throw error;
-    }
-    return session;
+      return work(session);
+    });
   }
 
   /**

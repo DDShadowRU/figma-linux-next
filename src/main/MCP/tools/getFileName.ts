@@ -16,9 +16,10 @@ export function registerGetFileName(server: McpServer, ctx: ToolContext) {
       annotations: { readOnlyHint: true },
     },
     ({ fileKey }) =>
-      runTool("get_file_name", async () => {
-        const session = await ctx.files.open(fileKey);
-        return { output: await session.execJson<{ name: string }>(GET_FILE_NAME_SCRIPT) };
-      }),
+      runTool("get_file_name", () =>
+        ctx.files.withFile(fileKey, async (session) => ({
+          output: await session.execJson<{ name: string }>(GET_FILE_NAME_SCRIPT),
+        })),
+      ),
   );
 }

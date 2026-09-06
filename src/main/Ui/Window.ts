@@ -398,6 +398,7 @@ export default class Window {
     this.tabManager.closeAll();
 
     this.window.webContents.send("closeAllTabs");
+    this.syncMcpTabs();
   }
   public loadLoginPageAllWindows() {
     this.tabManager.loadLoginPage();
@@ -458,6 +459,17 @@ export default class Window {
     return this.tabManager.getAll().has(webContentsId);
   }
 
+  public get mcpTabs(): Types.McpTabFront[] {
+    return this.tabManager
+      .tabsByOwner("mcp")
+      .map((tab) => ({ id: tab.id, title: tab.title ?? "", busy: tab.busy }));
+  }
+
+  private syncMcpTabs() {
+    if (this.window.isDestroyed()) return;
+    this.window.webContents.send("setMcpTabs", this.mcpTabs);
+  }
+
   public getTabInfo(tabId: number) {
     const tab = this.tabManager.getById(tabId);
     if (!tab) {
@@ -494,17 +506,21 @@ export default class Window {
     // setLoading IPC never arrives. Without this flag the renderer skeleton
     // covers the real title forever. For Figma URLs leave loading default-true;
     // setLoading(false) clears it once the canvas is ready.
+    // mcp tabs get no didTabAdd: the strip drops every later per-tab event
+    // for an id it never saw, so nothing else needs an owner check.
     const isFigma = isFigmaRunUrl(url);
-    this.window.webContents.send("didTabAdd", {
-      id: tab.id,
-      url,
-      title: tab.displayTitle,
-      editorType: tab.editorType,
-      loading: isFigma,
-    });
+    if (owner === "user") {
+      this.window.webContents.send("didTabAdd", {
+        id: tab.id,
+        url,
+        title: tab.title,
+        editorType: tab.editorType,
+        loading: isFigma,
+      });
 
-    if (isFigma) {
-      this.armLoadingWatchdog(tab);
+      if (isFigma) {
+        this.armLoadingWatchdog(tab);
+      }
     }
 
     return tab;
@@ -514,12 +530,14 @@ export default class Window {
    * Open a file for the MCP server in a tab of its own, in the background.
    * These tabs are never shared with the user's: findTabForUrl skips them for
    * the user's opens, and the MCP registry is the only thing that dedups them.
+   * The panel never lists them in the strip; it gets the list via setMcpTabs.
    */
   public openMcpFile(fileKey: string): McpTabHandle | null {
-    const tab = this.addTab(`${HOMEPAGE}/file/${fileKey}`, undefined, "mcp");
+    const tab = this.addTab(`${HOMEPAGE}/file/${fileKey}`, fileKey, "mcp");
     if (!tab) return null;
 
     this.mountMcpTab(tab);
+    this.syncMcpTabs();
 
     const wc = tab.view.webContents;
     return {
@@ -530,6 +548,11 @@ export default class Window {
       isFocused: () => this.tabManager.lastFocusedTab === tab.id,
       onDestroyed: (callback) => {
         wc.once("destroyed", callback);
+      },
+      setBusy: (busy) => {
+        if (wc.isDestroyed() || tab.busy === busy) return;
+        tab.busy = busy;
+        this.syncMcpTabs();
       },
       close: () => {
         if (wc.isDestroyed()) return;
@@ -799,6 +822,7 @@ export default class Window {
     if (!this.tabManager.hasOpenedNewFileTab) {
       this.window.webContents.send("newFileBtnVisible", true);
     }
+    this.syncMcpTabs();
   }
   public getLatestFocusedTabId() {
     return this.tabManager.lastFocusedTab;
@@ -912,10 +936,14 @@ export default class Window {
     }
 
     this.tabManager.setTitle(tab.id, title);
+    if (tab instanceof Tab && tab.owner === "mcp") {
+      this.syncMcpTabs();
+      return;
+    }
     if (tab?.view?.webContents) {
       this.window.webContents.send("setTitle", {
         id: tab.view.webContents.id,
-        title: tab instanceof Tab ? tab.displayTitle : title,
+        title,
       });
     }
   }
@@ -1032,6 +1060,7 @@ export default class Window {
   public handleFrontReady() {
     this.pushSettingsToPanel();
     this.setFigmaTheme(getResolvedFigmaTheme());
+    this.syncMcpTabs();
     this.showHandler(null);
     this.revealIfHidden();
   }

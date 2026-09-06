@@ -2,6 +2,7 @@
   import { ButtonWindow } from "Common/Buttons";
   import { getFrameConfig } from "Utils/Render/frameTheme";
   import { isMenuOpen, tabs, windowControls } from "../store";
+  import McpIndicator from "./McpIndicator.svelte";
 
   let { style }: { style: Types.FrameStyle } = $props();
 
@@ -90,6 +91,8 @@
 {/snippet}
 
 <div class="controls">
+  <McpIndicator hoverBgColor="var(--frame-btn-hover)" activeBgColor="var(--frame-btn-active)" />
+
   {#if grouped}
     <div class="menu-btn">
       {@render menuButton()}
@@ -162,5 +165,18 @@
     width: 24px;
     height: 24px;
     border-radius: 20px;
+  }
+
+  /* The mcp indicator carries a count beside its glyph, so it sizes to its
+     label instead of taking the fixed width of a window control. */
+  .controls :global(.mcp-btn div[role="button"]) {
+    width: auto;
+  }
+  :global([data-frame="gnome"]) .controls :global(.mcp-btn div[role="button"]) {
+    height: 34px;
+    border-radius: 9px;
+  }
+  :global([data-frame="kde"]) .controls :global(.mcp-btn div[role="button"]) {
+    border-radius: 16px;
   }
 </style>

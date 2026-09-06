@@ -27,6 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **MCP tabs left the tab bar.** Files the MCP server opens no longer show up as `[mcp] <name>`
+  tabs next to your own. They stay hidden; a plug button on the right of the tab bar shows how many
+  are open and its menu lists them: click a file to show it, `Close all` to drop them. Ctrl+Tab and the tab focused after closing one of yours skip them.
 - **`download_assets` minifies svg exports with svgo.** `preset-default` with ids left unrenamed, so
   `viewBox`, `width`/`height` and Figma's `clip0_…` ids survive; on real files this is 40–55% fewer
   bytes for vector nodes and about 25% for frames with embedded rasters. If svgo fails, the raw

@@ -21,7 +21,7 @@ import {
   parseURL,
   getEditorTypeFromUrl,
 } from "Utils/Common";
-import { MCP_TAB_TITLE_PREFIX, NEW_FILE_TAB_TITLE } from "Const";
+import { NEW_FILE_TAB_TITLE } from "Const";
 import { dialogs } from "Main/Dialogs";
 import { logger } from "Main/Logger";
 
@@ -37,6 +37,7 @@ export default class Tab {
   public fileKey?: string;
   public isUsingMicrophone?: boolean;
   public isInVoiceCall?: boolean;
+  public busy = false;
   public view: WebContentsView;
   /** Last snapshot of the page as a JPEG data URL, for the hover preview card. */
   public thumbnail?: string;
@@ -60,11 +61,6 @@ export default class Tab {
   public get isLibrary() {
     return this._isLibrary;
   }
-  public get displayTitle(): string | undefined {
-    if (this.title === undefined || this.owner !== "mcp") return this.title;
-    return `${MCP_TAB_TITLE_PREFIX}${this.title}`;
-  }
-
   public setEditorType(t: Types.EditorType) {
     if (this._editorType === t) return;
     this._editorType = t;

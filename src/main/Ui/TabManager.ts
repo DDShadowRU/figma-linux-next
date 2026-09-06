@@ -87,30 +87,20 @@ export default class TabManager {
       this.mainTab.view.webContents.destroy();
     }
   }
+  /** Closes the tab and returns the tab to focus next: the following user tab, else the
+   *  preceding one, else main/community. Mcp tabs are never the answer. */
   public close(tabId: number): Types.TabIdType {
     const tab = this.tabs.get(tabId);
-    const array = [...this.tabs.entries()];
-    let nextTabId: Types.TabIdType;
+    const fallback: Types.TabIdType = this.hasOpenedCommunityTab ? "communityTab" : "mainTab";
 
     if (!tab) {
       this.tabs.delete(tabId);
-      return this.hasOpenedCommunityTab ? "communityTab" : "mainTab";
+      return fallback;
     }
 
-    for (let i = 0; i < array.length; i++) {
-      const tab = array[i];
-      const next = array[i + 1];
-
-      if (!next) {
-        break;
-      }
-      if (tab[0] === tabId) {
-        nextTabId = next[0];
-        break;
-      }
-
-      nextTabId = tab[0];
-    }
+    const userIds = this.userTabIds;
+    const idx = userIds.indexOf(tabId);
+    const nextTabId = idx === -1 ? userIds.at(-1) : (userIds[idx + 1] ?? userIds[idx - 1]);
 
     if (tab.view?.webContents && !tab.view.webContents.isDestroyed()) {
       tab.view.webContents.destroy();
@@ -121,11 +111,7 @@ export default class TabManager {
 
     this.tabs.delete(tabId);
 
-    if (!nextTabId) {
-      nextTabId = this.hasOpenedCommunityTab ? "communityTab" : "mainTab";
-    }
-
-    return nextTabId;
+    return nextTabId ?? fallback;
   }
 
   public reloadAll() {
@@ -143,17 +129,27 @@ export default class TabManager {
     });
   }
 
+  public tabsByOwner(owner: Types.TabOwner): Tab[] {
+    return [...this.tabs.values()].filter((tab) => tab.owner === owner);
+  }
+
+  /** Ids of the tabs the panel strip lists, in strip order. */
+  private get userTabIds(): number[] {
+    return this.tabsByOwner("user").map((tab) => tab.id);
+  }
+
   public getNextTabId(currentId: Types.TabIdType | undefined): number | undefined {
-    const ids = [...this.tabs.keys()];
+    const ids = this.userTabIds;
     if (ids.length === 0) return undefined;
     const idx = typeof currentId === "number" ? ids.indexOf(currentId) : -1;
     return ids[(idx + 1) % ids.length];
   }
 
   public getPrevTabId(currentId: Types.TabIdType | undefined): number | undefined {
-    const ids = [...this.tabs.keys()];
+    const ids = this.userTabIds;
     if (ids.length === 0) return undefined;
-    const idx = typeof currentId === "number" ? ids.indexOf(currentId) : 0;
+    const found = typeof currentId === "number" ? ids.indexOf(currentId) : -1;
+    const idx = found === -1 ? 0 : found;
     return ids[(idx - 1 + ids.length) % ids.length];
   }
 

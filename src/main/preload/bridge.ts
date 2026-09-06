@@ -30,6 +30,7 @@ const SEND_CHANNELS = [
   "openTabMenu",
   "tabHoverStart",
   "tabHoverEnd",
+  "openMcpMenu",
   // Settings
   "closeSettingsView",
   "setFrameStyle",
@@ -65,6 +66,7 @@ const RECEIVE_CHANNELS = [
   "setLoading",
   "frameStyleChanged",
   "figmaThemeChanged",
+  "setMcpTabs",
   // Tab preview card (renderer/Preview)
   "tabPreviewData",
 ] as const;

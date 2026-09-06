@@ -9,6 +9,7 @@ import {
   newFileVisible,
   communityTabVisible,
   windowControls,
+  mcpTabs,
 } from "./store";
 
 export function initIpc() {
@@ -90,5 +91,8 @@ export function initIpc() {
   });
   window.figmaApi.on("setLoading", (tabId: number, loading: boolean) => {
     tabs.updateTab({ id: tabId, loading });
+  });
+  window.figmaApi.on("setMcpTabs", (list: Types.McpTabFront[]) => {
+    mcpTabs.set(list);
   });
 }

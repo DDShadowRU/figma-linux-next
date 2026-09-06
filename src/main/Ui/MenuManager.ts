@@ -203,6 +203,20 @@ export default class MenuManager {
     });
   }
 
+  public openMcpMenuHandler(
+    window: BrowserWindow,
+    tabs: Types.McpTabFront[],
+    actions: { show(id: number): void; closeAll(): void },
+  ) {
+    const context: MenuItemConstructorOptions[] = tabs.map((tab) => ({
+      label: tab.title,
+      click: () => actions.show(tab.id),
+    }));
+    context.push({ type: "separator" }, { label: "Close all", click: () => actions.closeAll() });
+
+    Menu.buildFromTemplate(context).popup({ window });
+  }
+
   public getTabMenu(tabId: number) {
     return this._menu.get(tabId);
   }

@@ -218,6 +218,7 @@ declare namespace Electron {
     on(channel: "openMainTabMenu", listener: (event: IpcMainInvokeEvent) => void): this;
     on(channel: "openCommunityTabMenu", listener: (event: IpcMainInvokeEvent) => void): this;
     on(channel: "openTabMenu", listener: (event: IpcMainInvokeEvent, tabId: number) => void): this;
+    on(channel: "openMcpMenu", listener: (event: IpcMainInvokeEvent) => void): this;
     on(channel: "appExit", listener: (event: IpcMainInvokeEvent) => void): this;
     on(channel: "newProject", listener: (event: IpcMainInvokeEvent) => void): this;
     on(channel: "closeCommunityTab", listener: (event: IpcMainInvokeEvent) => void): this;
@@ -348,6 +349,10 @@ declare namespace Electron {
     ): this;
     on(channel: "tabWasClosed", listener: (event: IpcRendererEvent, tabId: number) => void): this;
     on(
+      channel: "setMcpTabs",
+      listener: (event: IpcRendererEvent, tabs: Types.McpTabFront[]) => void,
+    ): this;
+    on(
       channel: "setUsingMicrophone",
       listener: (event: IpcRendererEvent, data: { id: number; isUsingMicrophone: boolean }) => void,
     ): this;
@@ -404,6 +409,7 @@ declare namespace Electron {
     send(channel: "openMainTabMenu"): this;
     send(channel: "openCommunityTabMenu"): this;
     send(channel: "openTabMenu", tabId: number): this;
+    send(channel: "openMcpMenu"): this;
     send(channel: "newProject"): this;
     send(channel: "closeCommunityTab"): this;
     send(channel: "appExit"): this;
@@ -467,6 +473,7 @@ declare namespace Electron {
     send(channel: "focusTab", tabId: Types.TabIdType): this;
     send(channel: "newFileBtnVisible", visible: boolean): this;
     send(channel: "tabWasClosed", tabId: number): this;
+    send(channel: "setMcpTabs", tabs: Types.McpTabFront[]): this;
     send(channel: "setUsingMicrophone", data: { id: number; isUsingMicrophone: boolean }): this;
     send(channel: "setIsInVoiceCall", data: { id: number; isInVoiceCall: boolean }): this;
 

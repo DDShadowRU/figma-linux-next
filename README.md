@@ -51,10 +51,9 @@ round-trip. Everything binds to `127.0.0.1` and is configured in **Settings → 
 
 - **Data plane — Figma MCP** (Streamable HTTP, default `127.0.0.1:3845/mcp`, on by default). Tools
   take a `fileKey` — the id in `figma.com/design/<fileKey>/…`. The first time a file is requested the
-  app opens it in a background tab labelled `[mcp] <file name>`, waits for it to load and keeps it for
-  later calls: every assistant asking for that file shares the tab, and it never collides with the
-  tabs you opened yourself. Close the tab and the next call opens it again; mcp tabs are not restored
-  on restart. Built on the official MCP TypeScript SDK.
+  app opens it in a hidden background tab, waits for it to load and keeps it for later calls: every
+  assistant asking for that file shares the tab, and it never collides with the tabs you opened
+  yourself.
 - **Control plane — Chrome DevTools (CDP)** (opt-in, needs a restart). Exposes the app window over
   `--remote-debugging-port` so a CDP client (e.g. [chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp))
   can drive the UI — switch tabs, click, type, screenshot the real window.

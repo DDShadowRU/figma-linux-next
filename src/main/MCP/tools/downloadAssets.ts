@@ -143,13 +143,14 @@ export function registerDownloadAssets(server: McpServer, ctx: ToolContext) {
     ({ fileKey, nodes, format, scale }) =>
       runTool("download_assets", async () => {
         const spec = ASSET_FORMATS[format];
-        const session = await ctx.files.open(fileKey);
-        const items = await exportNodes(
-          session,
-          nodes.map((nodeId) => ({
-            id: normalizeNodeId(nodeId),
-            spec: spec.settings(scale),
-          })),
+        const items = await ctx.files.withFile(fileKey, (session) =>
+          exportNodes(
+            session,
+            nodes.map((nodeId) => ({
+              id: normalizeNodeId(nodeId),
+              spec: spec.settings(scale),
+            })),
+          ),
         );
 
         const taken = new Set<string>();

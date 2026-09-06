@@ -32,20 +32,19 @@ export function registerGetScreenshot(server: McpServer, ctx: ToolContext) {
     ({ fileKey, nodeId }) =>
       runTool("get_screenshot", async () => {
         const id = normalizeNodeId(nodeId);
-        const session = await ctx.files.open(fileKey);
+        const item = await ctx.files.withFile(fileKey, async (session) => {
+          const render = async (maxEdge: number) => {
+            const fit = { min: SCREENSHOT_MIN_EDGE, max: maxEdge };
+            const [item] = await exportNodes(session, [{ id, spec: { format: "PNG", fit } }]);
+            const error = exportErrorMessage(item, fileKey);
+            if (error) throw new Error(error);
+            return item;
+          };
 
-        const render = async (maxEdge: number) => {
-          const fit = { min: SCREENSHOT_MIN_EDGE, max: maxEdge };
-          const [item] = await exportNodes(session, [{ id, spec: { format: "PNG", fit } }]);
-          const error = exportErrorMessage(item, fileKey);
-          if (error) throw new Error(error);
-          return item;
-        };
-
-        let item = await render(SCREENSHOT_MAX_EDGE);
-        if (Buffer.byteLength(item.data, "base64") > SCREENSHOT_MAX_BYTES) {
-          item = await render(SCREENSHOT_MAX_EDGE / 2);
-        }
+          const full = await render(SCREENSHOT_MAX_EDGE);
+          if (Buffer.byteLength(full.data, "base64") <= SCREENSHOT_MAX_BYTES) return full;
+          return render(SCREENSHOT_MAX_EDGE / 2);
+        });
 
         const image = nativeImage.createFromBuffer(Buffer.from(item.data, "base64")).getSize();
         const scale = Math.round((image.width / item.width) * 1000) / 1000;
