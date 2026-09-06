@@ -8,10 +8,8 @@ import {
 
 export type SimplifiedNode = SimplifiedDesign["nodes"][number];
 
-export const nodeType = (
-  node: SimplifiedNode,
-  elements: SimplifiedDesign["elements"],
-) => node.type ?? (node.template ? elements[node.template]?.type : undefined);
+export const nodeType = (node: SimplifiedNode, elements: SimplifiedDesign["elements"]) =>
+  node.type ?? (node.template ? elements[node.template]?.type : undefined);
 
 export function simplifyDesign(
   rest: GetFileNodesResponse,
@@ -23,17 +21,9 @@ export function simplifyDesign(
   });
 }
 
-// Framelink's image fills carry download hints for its own REST-based image
-// tool; here images are fetched by node id through download_assets.
-const IMAGE_DOWNLOAD_KEYS = ["imageRef", "gifRef", "imageDownloadArguments"];
+const IMAGE_DOWNLOAD_KEYS = ["gifRef", "imageDownloadArguments"];
 
-const STYLE_REF_FIELDS = [
-  "layout",
-  "fills",
-  "strokes",
-  "effects",
-  "textStyle",
-] as const;
+const STYLE_REF_FIELDS = ["layout", "fills", "strokes", "effects", "textStyle"] as const;
 
 /**
  * Drops what the agent can't use: image download hints, empty values such as
@@ -54,9 +44,7 @@ export function tidyDesign(design: SimplifiedDesign): void {
 
 function prune(value: unknown, emptyStyles: Set<string>): unknown {
   if (Array.isArray(value)) {
-    const entries = value
-      .map((entry) => prune(entry, emptyStyles))
-      .filter((e) => e !== undefined);
+    const entries = value.map((entry) => prune(entry, emptyStyles)).filter((e) => e !== undefined);
     return entries.length ? entries : undefined;
   }
   if (!value || typeof value !== "object") return value;
@@ -64,8 +52,7 @@ function prune(value: unknown, emptyStyles: Set<string>): unknown {
   if (record.type === "IMAGE" && "scaleMode" in record) {
     for (const key of IMAGE_DOWNLOAD_KEYS) delete record[key];
   }
-  if (typeof record.opacity === "number")
-    record.opacity = Math.round(record.opacity * 1000) / 1000;
+  if (typeof record.opacity === "number") record.opacity = Math.round(record.opacity * 1000) / 1000;
   for (const field of STYLE_REF_FIELDS) {
     const ref = record[field];
     if (typeof ref === "string" && emptyStyles.has(ref)) delete record[field];
@@ -83,18 +70,14 @@ function prune(value: unknown, emptyStyles: Set<string>): unknown {
  * request separately. Collapsed vector containers (`IMAGE-SVG`) lose their
  * children on purpose and are not cut.
  */
-export function cutNodeIds(
-  design: SimplifiedDesign,
-  parents: Set<string>,
-): Set<string> {
+export function cutNodeIds(design: SimplifiedDesign, parents: Set<string>): Set<string> {
   const cut = new Set<string>();
   const walk = (node: SimplifiedNode) => {
     if (node.children) {
       for (const child of node.children) walk(child);
       return;
     }
-    if (nodeType(node, design.elements) !== "IMAGE-SVG" && parents.has(node.id))
-      cut.add(node.id);
+    if (nodeType(node, design.elements) !== "IMAGE-SVG" && parents.has(node.id)) cut.add(node.id);
   };
   for (const node of design.nodes) walk(node);
   return cut;

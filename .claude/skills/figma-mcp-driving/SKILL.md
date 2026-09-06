@@ -50,8 +50,9 @@ user gave you, or `fetch('/api/recent_files')` evaluated in the Recents page ove
 `GLOBAL_VARS` (shared styles, keyed by Figma style name or a content hash), `ELEMENTS` (repeated
 node bodies referenced as `template=EL-…`), `COMPONENTS`, then `NODES` with one line per node —
 `[TYPE] "name" #id layout=… fills=… text=…`, two spaces per level. `IMAGE-SVG` is a vector container
-collapsed to one node: pull it with `download_assets(svg)`; nodes with `{"type":"IMAGE"}` fills are
-rasters, pull them as png. A big node is cut by depth to fit ~64 KB: a node whose subtree was left
+collapsed to one node: pull it with `download_assets(svg)`. A fill that carries an `imageRef` is a
+photo the designer uploaded — pull the original with `download_image_fills`, **not**
+`download_assets`, which re-renders the node with its text and children on top of the photo. A big node is cut by depth to fit ~64 KB: a node whose subtree was left
 out ends its line with `children=…` (request it by id to read inside) and the text ends with a
 `TRUNCATED: …` note. The reply is one text block, no JSON. `depth` exists but is for explicit
 requests only. A whole 14-level page renders in about a second; a hidden node, `0:0` and an
@@ -72,6 +73,16 @@ icons ask for `svg`: the markup is minified (svgo `preset-default`, ids not rena
 `width`, `height` and `viewBox`, Figma's `clip0_…` ids, flat `<path>`s in relative commands rounded to
 3 decimals and the fills Figma had; adapting colours to the project is your job.
 
+**Pull a photo out of a frame** — `download_image_fills({ fileKey, nodes: [nodeId, …] })`, up to 20
+nodes, one file per IMAGE fill, written next to the `download_assets` files and readable over
+`resources/read`. The bytes are the upload, so the extension tells you what the designer actually
+gave Figma (a `.webp` will not open everywhere); png, jpg and webp are written, anything else lands
+in `failed`. Nothing is cropped: `scaleMode` in the tree says how the design places it (`FILL` =
+CSS `object-fit: cover`, nothing to do), and an `imageTransform` in the reply means there *is* a
+crop — `left = t[0][2]*width, top = t[1][2]*height, w = t[0][0]*width, h = t[1][1]*height`, clamped
+into the image (`magick in.jpg -crop WxH+L+T out.jpg`). Match a file to a tree line by `imageRef`,
+never by position in `fills=[…]`.
+
 **Check what the app did** — chrome-figma `list_pages`; the panel is the `dist/index.html` page.
 Evaluate `[...document.querySelectorAll('[data-tab-id]')].map(e => e.innerText)` there to see the
 user's tab strip (mcp tabs are not in it) and
@@ -91,6 +102,9 @@ Figma MCP keeps working.
   to colons for you (the message shows the normalised id); `0:0` is the document and cannot be
   exported. *is hidden (visible: false)* → the layer is switched off in the design; Figma renders
   nothing for it, so pick a visible node.
+- *has no image fill* → the node is a shape or a group; find the node whose `fills=` entry carries
+  the `imageRef`. *all hidden (visible: false)* → the fill is switched off in the design. *has a
+  video fill* → Figma keeps no downloadable original, use `get_screenshot`.
 - url still `/login` → the app isn't signed in.
 - a timeout carries the tab's state: url, `visibility`, `readyState`, size, page title and the
   first lines of page text.
@@ -113,7 +127,8 @@ Figma MCP keeps working.
 
 **Figma MCP:** `get_design({ fileKey, nodeId, depth? }) → text tree (cut nodes marked children=…)`;
 `get_screenshot({ fileKey, nodeId }) → image + { node, image, scale }`;
-`download_assets({ fileKey, nodes[], format?, scale? }) → { files[{ nodeId, name, path, width, height }], failed[] }`
+`download_assets({ fileKey, nodes[], format?, scale? }) → { files[{ nodeId, name, path, width, height }], failed[] }`;
+`download_image_fills({ fileKey, nodes[] }) → { images[{ nodeId, name, imageRef, path, width, height, imageTransform? }], failed[] }`
 plus a `resource_link` per file. Every tool takes `fileKey` the same way.
 
 **chrome-figma (control):** `list_pages` / `select_page`, `evaluate_script`, `take_screenshot` /

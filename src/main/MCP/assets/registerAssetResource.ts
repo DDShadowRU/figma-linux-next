@@ -18,7 +18,7 @@ export function registerAssetResource(server: McpServer, assets: McpAssetStore) 
     ASSET_URI_TEMPLATE,
     {
       title: "Exported asset",
-      description: "A file written by download_assets",
+      description: "A file written by download_assets or download_image_fills",
     },
     async (uri) => {
       const notFound = () => new ResourceNotFoundError(uri.href);

@@ -34,10 +34,7 @@ export async function exportDesign(
 
 // The node's own errors stay nested under `design`: a top-level `error` is
 // how execJson recognises a Plugin API failure.
-export const buildExportDesignScript = (
-  id: string,
-  depth?: number,
-) => `(async () => {
+export const buildExportDesignScript = (id: string, depth?: number) => `(async () => {
   try {
     const figma = window.figma;
     if (!figma || !figma.root) return JSON.stringify({ error: "Figma Plugin API is not available" });

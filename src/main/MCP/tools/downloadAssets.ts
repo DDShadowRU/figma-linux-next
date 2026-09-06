@@ -2,6 +2,7 @@ import type { ContentBlock, McpServer } from "@modelcontextprotocol/server";
 import { nativeImage } from "electron";
 import * as z from "zod/v4";
 import { ASSET_FORMATS, availableFormats, VECTOR_DRAWABLE } from "../assets/formats";
+import { resourceLink } from "../assets/McpAssetStore";
 import { optimizeSvg } from "../assets/optimizeSvg";
 import type { AndroidStudio } from "../assets/vectorDrawable/androidStudio";
 import {
@@ -12,41 +13,9 @@ import { MAX_ASSET_NODES } from "../config";
 import { type ExportedNode, exportNodes } from "../scripts/exportNodes";
 import type { ToolContext } from "./context";
 import { exportErrorMessage } from "./exportErrors";
+import { androidResourceName, reserveBaseName, slugify } from "./fileNames";
 import { runTool } from "./runTool";
 import { assetScaleSchema, fileKeySchema, nodeIdSchema, normalizeNodeId } from "./schemas";
-
-const MAX_SLUG_LENGTH = 64;
-
-function slugify(name: string, fallbackId: string): string {
-  const slug = name
-    .normalize("NFKC")
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, MAX_SLUG_LENGTH)
-    .replace(/-+$/, "");
-  return slug || `node-${fallbackId.replace(/:/g, "-").replace(/;/g, "_")}`;
-}
-
-// Android resource names allow only [a-z0-9_] and must start with a letter.
-function androidResourceName(name: string, fallbackId: string): string {
-  const slug = name
-    .normalize("NFKC")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .slice(0, MAX_SLUG_LENGTH)
-    .replace(/_+$/, "");
-  if (/^[a-z]/.test(slug)) return slug;
-  return `node_${slug || fallbackId.replace(/[:;]/g, "_")}`;
-}
-
-function reserveBaseName(base: string, separator: string, taken: Set<string>): string {
-  let candidate = base;
-  for (let n = 2; taken.has(candidate); n += 1) candidate = `${base}${separator}${n}`;
-  taken.add(candidate);
-  return candidate;
-}
 
 interface Exported {
   item: ExportedNode;
@@ -204,14 +173,7 @@ export function registerDownloadAssets(server: McpServer, ctx: ToolContext) {
               ...size,
               warning: payload.warning,
             });
-            content.push({
-              type: "resource_link",
-              uri: written.uri,
-              name: fileName,
-              mimeType: spec.mimeType,
-              size: written.bytes,
-              description: payload.warning,
-            });
+            content.push(resourceLink(written, fileName, spec.mimeType, payload.warning));
           }
         }
 

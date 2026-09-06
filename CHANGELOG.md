@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`download_image_fills` MCP tool.** `download_image_fills({ fileKey, nodes })` writes the images
+  a node uses as fills exactly as they were uploaded to Figma — png, jpg or webp, never re-encoded
+  and never cropped — so a photo can be taken out of a frame without the text and children that
+  `download_assets` renders on top of it. Each file comes back with its pixel size and, when the
+  fill is cropped, the transform needed to reproduce the crop. `get_design` now prints an
+  `imageRef` on every image fill, which is how a fill in the tree is matched to its file.
 - **`get_design` MCP tool.** `get_design({ fileKey, nodeId, depth? })` returns one node as a compact
   text tree of layout, text, fills, strokes, effects and component references — the `tree` format
   of Framelink's figma-context-mcp, whose transformer (`figma-developer-mcp`) is bundled into the

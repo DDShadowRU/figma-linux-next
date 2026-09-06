@@ -1,6 +1,7 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import type { ContentBlock } from "@modelcontextprotocol/server";
 import { mkPath } from "Utils/Main";
 
 export interface WrittenAsset {
@@ -44,4 +45,20 @@ export class McpAssetStore {
     await rm(this.root, { recursive: true, force: true });
     await mkPath(this.root);
   }
+}
+
+export function resourceLink(
+  asset: WrittenAsset,
+  fileName: string,
+  mimeType: string,
+  description?: string,
+): ContentBlock {
+  return {
+    type: "resource_link",
+    uri: asset.uri,
+    name: fileName,
+    mimeType,
+    size: asset.bytes,
+    description,
+  };
 }

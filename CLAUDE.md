@@ -198,8 +198,9 @@ new App(new WindowManager(), new Session(), new FontManager());
   in a tab of its own (`Window.openMcpFile` → `Tab.owner === "mcp"`) and shares it between clients;
   `McpFileSession` waits for `window.figma` and runs scripts via `webContents.executeJavaScript()`
 - Tools: `get_design` (one node → text tree, below), `get_screenshot` (one node → PNG image block,
-  longest edge fitted into `[SCREENSHOT_MIN_EDGE, SCREENSHOT_MAX_EDGE]`) and `download_assets` (up
-  to `MAX_ASSET_NODES` nodes → png/jpg/svg files). The last two run one in-tab
+  longest edge fitted into `[SCREENSHOT_MIN_EDGE, SCREENSHOT_MAX_EDGE]`), `download_assets` (up
+  to `MAX_ASSET_NODES` nodes → png/jpg/svg files) and `download_image_fills` (below: the images
+  stored behind a node's IMAGE fills, untouched). `get_screenshot`/`download_assets` run one in-tab
   script, `buildExportNodesScript()` (`scripts/exportNodes.ts`): it resolves ids with
   `getNodeByIdAsync`, exports sequentially under a time/byte budget and returns base64 or SVG text;
   `tools/exportErrors.ts` turns its per-node error codes (and `exportDesign`'s) into messages
@@ -211,8 +212,11 @@ new App(new WindowManager(), new Session(), new FontManager());
   the tab via `node.exportAsync({ format: "JSON_REST_V1" })` (page loaded first; an orphaned main
   component exports with no children — a Figma limitation), prunes children below `depth` in-tab
   and caps the raw JSON at `DESIGN_RAW_MAX_BYTES`; `design/simplify.ts` runs
-  `simplifyRawFigmaObject` + `collapseSvgContainers` and `tidyDesign()` strips `imageRef`/download
-  hints (assets are fetched by node id), empty values and opacity float noise;
+  `simplifyRawFigmaObject` + `collapseSvgContainers` and `tidyDesign()` strips Framelink's
+  `imageDownloadArguments` (the crop and file-name plan for its own REST image tool) and `gifRef`
+  (nothing here downloads gifs), empty values and opacity float noise — but keeps `imageRef`, the
+  id `download_image_fills` takes. A fill can end up inline on the node line, in `GLOBAL_VARS` (used
+  ≥2× or a named Figma style) or inside an `ELEMENTS` body;
   `design/serializeTree.ts` is our own renderer of Framelink's `tree` format (`[TYPE] "name" #id
   key=value…`, shared `GLOBAL_VARS`/`ELEMENTS` tables) because the package doesn't export its
   serializers. Output over `DESIGN_MAX_OUTPUT_BYTES` is cut by depth (binary search on the deepest
@@ -230,8 +234,10 @@ new App(new WindowManager(), new Session(), new FontManager());
   process (`McpAssetStore.prepare()`), not at start-up: binding the port never waits for the `rm`,
   and `McpService.start()` re-running on a port change from Settings leaves files alone. No `outputDir` parameter by design: the tool never writes outside
   its own directory. Each file is also a `resource_link`; `registerAssetResource()` (`assets/`) serves
-  `resources/read` for `file://` URIs inside that root (svg as text, png/jpg as blob) and rejects
-  anything outside it
+  `resources/read` for `file://` URIs inside that root (svg and vector-drawable xml as text,
+  png/jpg/webp as blob) and rejects anything outside it. `findFormatByExtension()` resolves through
+  one `SERVED_TYPES` map built from `ASSET_FORMATS` plus `WEBP` — webp is stored by Figma but not
+  exportable, so it lives in `assets/imageTypes.ts` with the other magic-byte primitives
 - svg exports pass through `optimizeSvg()` (`assets/optimizeSvg.ts`): svgo `preset-default` with
   `cleanupIds.minify` off, so Figma ids (`clip0_…`) survive inlining several files into one page.
   svgo is `import()`ed on the first svg export; if it throws, the raw export is written and a
@@ -249,7 +255,25 @@ new App(new WindowManager(), new Session(), new FontManager());
   input; the log (Svg2Vector's `ERROR @ line …` / `WARNING @ line …` lines about dropped masks,
   filters, rasters, text) becomes the file's `warning`, and only a missing xml puts the node into
   `failed`. Android resource names (`[a-z0-9_]`, leading letter, `_2` suffixes) come from
-  `androidResourceName()`
+  `androidResourceName()` (`tools/fileNames.ts`, shared with `slugify()`/`reserveBaseName()`)
+- `download_image_fills({ fileKey, nodes })` answers the one thing `download_assets` cannot: a
+  photo used as a node's background, without the node's own text and children rendered on top of
+  it. `scripts/exportImageFills.ts` reads `node.fills` in the tab and pulls the stored bytes with
+  `figma.getImageByHashAsync(hash).getBytesAsync()` (the sync `getImageByHash` throws in a
+  dynamic-page document), under the same `EXPORT_BUDGET` as `exportNodes`. Nothing is re-encoded
+  and nothing is cropped: `assets/imageTypes.ts` sniffs the container from the magic bytes
+  (png/jpg/webp; anything else is a `failed` row, not a `.bin` file) and the pixel size comes from
+  `image.getSizeAsync()` in the tab, because `nativeImage.createFromBuffer()` — what
+  `download_assets` uses — returns an empty image for webp. Fills are matched by `imageRef`, never
+  by index: the transformer `.reverse()`s fills into CSS order, so an index would not line up with
+  `node.fills`. The script returns `{ items, sources }` with the bytes keyed by `imageRef`, so an
+  image shared by several fills crosses the `executeJavaScript` boundary, gets decoded and gets
+  written exactly once. The reply deliberately carries only what the tree lacks — pixel size and a
+  non-identity `imageTransform` (Figma reports an identity matrix on every uncropped fill);
+  `scaleMode` and the CSS hints are already in `get_design`. Hidden paints are filtered in the tab,
+  so `fills_hidden` is a node error and never a per-fill one. Error vocabularies split at the
+  process boundary: `ImageFillError` is what the tab can report, `unsupported_format` is decided
+  host-side once the bytes are visible, and only an empty result throws
 - Tool descriptions are agent-facing only: inputs, outputs, what is temporary. Internals (parked
   tabs, the Plugin API, fit/scale logic) don't belong in them
 - mcp tabs never appear in the panel's tab strip: `Window.addTab()` sends `didTabAdd` only for
@@ -411,6 +435,8 @@ Custom switches can be added in settings under `app.commandSwitches`.
 | `src/main/MCP/McpService.ts` | MCP server facade (port 3845): HTTP transport + fileKey-addressed file registry + temp asset store |
 | `src/main/MCP/scripts/exportNodes.ts` | The in-tab export script (`buildExportNodesScript()`) and its wire types, shared by `get_screenshot` / `download_assets` |
 | `src/main/MCP/scripts/exportDesign.ts` | The in-tab `JSON_REST_V1` export behind `get_design` (page load, depth pruning, raw size cap) |
+| `src/main/MCP/scripts/exportImageFills.ts` | The in-tab fill reader behind `download_image_fills` (hash matching, original bytes, pixel size) |
+| `src/main/MCP/assets/imageTypes.ts` | Stored-image containers: extension↔mime table plus magic-byte sniffing |
 | `src/main/MCP/design/` | `get_design` pipeline: `simplify.ts` (figma-developer-mcp + `tidyDesign`, cut-node detection), `serializeTree.ts` (Framelink `tree` renderer) |
 | `src/main/UrlHandlerIntegration.ts` | figma:// handler registration for AppImage / bare-binary launches |
 | `src/main/ExtensionManager.ts` | Plugin system with hot-reloading |

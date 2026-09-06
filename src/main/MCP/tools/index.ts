@@ -1,6 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/server";
 import type { ToolContext } from "./context";
 import { registerDownloadAssets } from "./downloadAssets";
+import { registerDownloadImageFills } from "./downloadImageFills";
 import { registerGetDesign } from "./getDesign";
 import { registerGetScreenshot } from "./getScreenshot";
 
@@ -10,4 +11,5 @@ export function registerTools(server: McpServer, ctx: ToolContext) {
   registerGetScreenshot(server, ctx);
   registerGetDesign(server, ctx);
   registerDownloadAssets(server, ctx);
+  registerDownloadImageFills(server, ctx);
 }
