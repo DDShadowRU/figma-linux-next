@@ -39,7 +39,10 @@ export class McpFileRegistry {
    */
   public acquire(fileKey: string): McpFileSession {
     const existing = this.sessions.get(fileKey);
-    if (existing?.isAlive) return existing;
+    if (existing?.isAlive) {
+      existing.touch();
+      return existing;
+    }
 
     const tab = this.host.openFile(fileKey);
     if (!tab) {

@@ -236,6 +236,12 @@ new App(new WindowManager(), new Session(), new FontManager());
 - mcp tabs show in the panel with a `[mcp] ` prefix (`Tab.displayTitle`); they are skipped by the
   user's open-file dedup (`Window.findTabForUrl`), by tab persistence (`Window.getState`) and by
   closed-tab history (`WindowManager.handleCloseTab`)
+- A parked mcp tab is a live Figma canvas, so `McpFileSession` closes its tab after
+  `MCP_TAB_IDLE_TTL_MS` (15 min, `FIGMA_MCP_TAB_IDLE_TTL_MS`) with no tool-initiated work.
+  `touch()` restarts the countdown from `McpFileRegistry.acquire()` and `execJson()` only —
+  never from `ensureReady()`/`probeFileState()`, which the readiness poll also runs, or an idle
+  session would keep itself alive. A tab the user is currently looking at (`McpTabHandle.isFocused`)
+  is re-armed instead of closed; the next tool call for an evicted file just reopens it
 - Started in `App.ready()`; `App` adapts `WindowManager` to the `McpTabHost` port
 
 **UrlHandlerIntegration** (`src/main/UrlHandlerIntegration.ts`):

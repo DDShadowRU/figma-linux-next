@@ -3,6 +3,7 @@ export interface McpTabHandle {
   exec(script: string): Promise<unknown>;
   getUrl(): string;
   isDestroyed(): boolean;
+  isFocused(): boolean;
   onDestroyed(callback: () => void): void;
   close(): void;
 }

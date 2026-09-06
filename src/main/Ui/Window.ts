@@ -527,6 +527,7 @@ export default class Window {
       exec: (script) => wc.executeJavaScript(script),
       getUrl: () => wc.getURL(),
       isDestroyed: () => wc.isDestroyed(),
+      isFocused: () => this.tabManager.lastFocusedTab === tab.id,
       onDestroyed: (callback) => {
         wc.once("destroyed", callback);
       },

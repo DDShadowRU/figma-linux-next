@@ -1,5 +1,10 @@
+import { logger } from "Main/Logger";
 import { parseURL } from "Utils/Common";
-import { FILE_OPEN_TIMEOUT_MS, PLUGIN_API_POLL_MS } from "../config";
+import {
+  FILE_OPEN_TIMEOUT_MS,
+  MCP_TAB_IDLE_TTL_MS,
+  PLUGIN_API_POLL_MS,
+} from "../config";
 import { McpFileError } from "../errors";
 import { FILE_STATE_SCRIPT, TAB_STATE_SCRIPT } from "../scripts";
 import type { McpTabHandle } from "./ports";
@@ -7,9 +12,11 @@ import type { McpTabHandle } from "./ports";
 export interface McpFileSessionOptions {
   timeoutMs?: number;
   pollMs?: number;
+  idleTtlMs?: number;
 }
 
-const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+const sleep = (ms: number) =>
+  new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 const isLoginUrl = (url: string) => parseURL(url)?.pathname === "/login";
 
@@ -26,7 +33,10 @@ const unavailableError = (status: number) => {
     );
   }
   if (status === 403) {
-    return new McpFileError("no_access", "Figma answered 403: the signed-in account can't view it");
+    return new McpFileError(
+      "no_access",
+      "Figma answered 403: the signed-in account can't view it",
+    );
   }
   return new McpFileError("not_found", `Figma answered HTTP ${status}`);
 };
@@ -35,6 +45,8 @@ const unavailableError = (status: number) => {
 export class McpFileSession {
   private readonly timeoutMs: number;
   private readonly pollMs: number;
+  private readonly idleTtlMs: number;
+  private idleTimer: ReturnType<typeof setTimeout> | null = null;
   private closed = false;
   private pluginApiReady = false;
   private readying: Promise<void> | null = null;
@@ -46,9 +58,12 @@ export class McpFileSession {
   ) {
     this.timeoutMs = options.timeoutMs ?? FILE_OPEN_TIMEOUT_MS;
     this.pollMs = options.pollMs ?? PLUGIN_API_POLL_MS;
+    this.idleTtlMs = options.idleTtlMs ?? MCP_TAB_IDLE_TTL_MS;
     tab.onDestroyed(() => {
       this.closed = true;
+      this.clearIdleTimer();
     });
+    this.touch();
   }
 
   public get tabId() {
@@ -77,18 +92,52 @@ export class McpFileSession {
     await this.readying;
   }
 
+  public touch() {
+    if (!this.isAlive) return;
+    this.clearIdleTimer();
+    this.idleTimer = setTimeout(() => this.onIdleTimeout(), this.idleTtlMs);
+  }
+
   public close() {
+    this.clearIdleTimer();
     this.tab.close();
   }
 
   public async execJson<T>(script: string): Promise<T> {
-    await this.ensureReady();
-    const raw = await this.tab.exec(script);
-    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-    if (parsed && typeof parsed === "object" && "error" in parsed) {
-      throw new McpFileError("plugin_api", `Plugin API error: ${parsed.error}`);
+    this.touch();
+    try {
+      await this.ensureReady();
+      const raw = await this.tab.exec(script);
+      const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+      if (parsed && typeof parsed === "object" && "error" in parsed) {
+        throw new McpFileError(
+          "plugin_api",
+          `Plugin API error: ${parsed.error}`,
+        );
+      }
+      return parsed as T;
+    } finally {
+      this.touch();
     }
-    return parsed as T;
+  }
+
+  private onIdleTimeout() {
+    this.idleTimer = null;
+    if (!this.isAlive) return;
+    if (this.tab.isFocused()) {
+      this.touch();
+      return;
+    }
+    logger.info(
+      `[mcp] closing tab ${this.tab.id} for ${this.fileKey}: idle for ${this.idleTtlMs / 1000}s`,
+    );
+    this.close();
+  }
+
+  private clearIdleTimer() {
+    if (this.idleTimer === null) return;
+    clearTimeout(this.idleTimer);
+    this.idleTimer = null;
   }
 
   private async waitForPluginApi(): Promise<void> {
@@ -97,7 +146,10 @@ export class McpFileSession {
     while (true) {
       this.assertAlive();
       if (isLoginUrl(this.tab.getUrl())) {
-        throw new McpFileError("not_logged_in", "Not signed in: Figma opened the login page");
+        throw new McpFileError(
+          "not_logged_in",
+          "Not signed in: Figma opened the login page",
+        );
       }
       const state = await this.probeFileState();
       if (state?.ready) {

@@ -8,6 +8,7 @@ export const SERVER_VERSION = APP_VERSION;
 
 export const FILE_OPEN_TIMEOUT_MS = Number(process.env.FIGMA_MCP_FILE_OPEN_TIMEOUT_MS) || 120_000;
 export const PLUGIN_API_POLL_MS = 500;
+export const MCP_TAB_IDLE_TTL_MS = Number(process.env.FIGMA_MCP_TAB_IDLE_TTL_MS) || 15 * 60 * 1000;
 
 export const SCREENSHOT_MIN_EDGE = 512;
 export const SCREENSHOT_MAX_EDGE = 2000;
