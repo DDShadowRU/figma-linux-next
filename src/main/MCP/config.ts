@@ -6,7 +6,7 @@ export const MCP_PATH = "/mcp";
 export const SERVER_NAME = "figma-linux-next";
 export const SERVER_VERSION = APP_VERSION;
 
-export const FILE_OPEN_TIMEOUT_MS = Number(process.env.FIGMA_MCP_FILE_OPEN_TIMEOUT_MS) || 60_000;
+export const FILE_OPEN_TIMEOUT_MS = Number(process.env.FIGMA_MCP_FILE_OPEN_TIMEOUT_MS) || 120_000;
 export const PLUGIN_API_POLL_MS = 500;
 
 export const SCREENSHOT_MIN_EDGE = 512;

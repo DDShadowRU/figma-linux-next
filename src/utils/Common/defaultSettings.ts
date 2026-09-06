@@ -54,6 +54,7 @@ export const BASE_DEFAULT_SETTINGS: Types.SettingsInterface = {
     serverPort: 3845,
     cdpEnabled: false,
     remoteDebugPort: 9222,
+    androidStudioPath: "",
   },
   ui: {
     scalePanel: 1,

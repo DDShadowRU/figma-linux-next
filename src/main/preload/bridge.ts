@@ -73,6 +73,7 @@ const INVOKE_CHANNELS = [
   "getSettings",
   "getRuntimeInfo",
   "selectExportDirectory",
+  "selectDirectory",
   "updateFigmaUiScale",
   "updatePanelScale",
   "getMcpStatus",

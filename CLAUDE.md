@@ -218,6 +218,19 @@ new App(new WindowManager(), new Session(), new FontManager());
   svgo is `import()`ed on the first svg export; if it throws, the raw export is written and a
   warning logged. Measured on real files: −40…−55% bytes on vector nodes, ~−25% on frames with
   embedded rasters
+- `download_assets` also offers `vector-drawable` (Android VectorDrawable xml) when
+  `settings.mcp.androidStudioPath` points at an Android Studio install. The `format` enum and the
+  description are built per request in `registerDownloadAssets`, so without a valid path the format
+  simply disappears; `assets/vectorDrawable/androidStudio.ts` checks `jbr/bin/java` +
+  `plugins/android/lib/sdk-common.jar` and logs an invalid path once per value. Conversion is
+  Google's own `Svg2Vector` from `sdk-common.jar`: `convertSvgToVectorDrawable.ts` writes the raw
+  Figma svg exports as `<call>/<name>.svg`, drops `Svg2VectorShim.java` (imported via `?raw`) into
+  the same dir and runs it once per call in source-launch mode on Studio's JBR (`-cp
+  plugins/android/lib/*:lib/*`, ~1 s). The shim leaves `<name>.xml` plus `<name>.log` next to each
+  input; the log (Svg2Vector's `ERROR @ line …` / `WARNING @ line …` lines about dropped masks,
+  filters, rasters, text) becomes the file's `warning`, and only a missing xml puts the node into
+  `failed`. Android resource names (`[a-z0-9_]`, leading letter, `_2` suffixes) come from
+  `androidResourceName()`
 - Tool descriptions are agent-facing only: inputs, outputs, what is temporary. Internals (parked
   tabs, the Plugin API, fit/scale logic) don't belong in them
 - mcp tabs show in the panel with a `[mcp] ` prefix (`Tab.displayTitle`); they are skipped by the

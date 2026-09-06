@@ -186,6 +186,7 @@ declare namespace Types {
       serverPort: number;
       cdpEnabled: boolean;
       remoteDebugPort: number;
+      androidStudioPath: string;
     };
     ui: {
       scalePanel: number;

@@ -23,9 +23,10 @@ export default class SettingsController {
     ipcRegistry.on("closeSettingsView", this.closeSettingsView.bind(this), "SettingsController");
     ipcRegistry.handle(
       "selectExportDirectory",
-      this.selectExportDirectory.bind(this),
+      this.selectDirectory.bind(this),
       "SettingsController",
     );
+    ipcRegistry.handle("selectDirectory", this.selectDirectory.bind(this), "SettingsController");
     ipcRegistry.handle("updatePanelScale", this.updatePanelScale.bind(this), "SettingsController");
     ipcRegistry.handle(
       "updateFigmaUiScale",
@@ -99,7 +100,7 @@ export default class SettingsController {
     this.windowManager.closeSettingsViewForLastWindow();
   }
 
-  private async selectExportDirectory(_: IpcMainInvokeEvent) {
+  private async selectDirectory(_: IpcMainInvokeEvent) {
     const directories = await dialogs.showOpenDialog({ properties: ["openDirectory"] });
 
     if (!directories) {

@@ -49,6 +49,18 @@
 
     $settings.app.exportDir = directory;
   }
+  async function onChangeAndroidStudioPath() {
+    const directory = await window.figmaApi.invoke("selectDirectory");
+
+    if (!directory) {
+      return;
+    }
+
+    $settings.mcp.androidStudioPath = directory;
+  }
+  function onClearAndroidStudioPath() {
+    $settings.mcp.androidStudioPath = "";
+  }
   function onItemRemoveClick(item: Types.TabItem) {
     $settings.app.fontDirs = items.filter((dir) => dir.id !== item.id).map((item) => item.id);
   }
@@ -308,16 +320,18 @@
                 bind:value={$settings.mcp.serverPort}
               />
             </SettingRow>
-          </div>
-          <div class="mcp-intro">
-            <p class="mcp-block-desc">
-              Tools take a <code>fileKey</code>. A file an assistant asks for opens in its own
-              <code>[mcp]</code> tab, separate from yours, and is shared between assistants.
-              <strong>Tools:</strong> get_file_name — more to come.
-            </p>
-            <p class="mcp-note">
-              Disabling closes the local endpoint entirely.
-            </p>
+            <SettingRow
+              title="Android Studio"
+              subtitle={$settings.mcp.androidStudioPath || "Not set, VectorDrawable export is off"}
+              truncate={true}
+            >
+              <div class="row-buttons">
+                <SecondaryButton onButtonClick={onChangeAndroidStudioPath}>Change</SecondaryButton>
+                {#if $settings.mcp.androidStudioPath}
+                  <SecondaryButton onButtonClick={onClearAndroidStudioPath}>Clear</SecondaryButton>
+                {/if}
+              </div>
+            </SettingRow>
           </div>
           <div class="mcp-block-snippet">
             <McpSnippet title=".mcp.json — figma-linux-next" code={figmaSnippet} />
@@ -607,5 +621,9 @@
     justify-content: flex-end;
     gap: 10px;
     margin-top: 12px;
+  }
+  .row-buttons {
+    display: flex;
+    gap: 8px;
   }
 </style>

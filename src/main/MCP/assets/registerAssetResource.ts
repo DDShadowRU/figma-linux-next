@@ -5,7 +5,7 @@ import {
   ResourceNotFoundError,
   ResourceTemplate,
 } from "@modelcontextprotocol/server";
-import { ASSET_FORMATS, type AssetFormat } from "./formats";
+import { findFormatByExtension } from "./formats";
 import type { McpAssetStore } from "./McpAssetStore";
 
 const ASSET_URI_TEMPLATE = new ResourceTemplate("file:///{+path}", {
@@ -25,15 +25,15 @@ export function registerAssetResource(server: McpServer, assets: McpAssetStore) 
       const filePath = assets.resolveInside(uri);
       if (!filePath) throw notFound();
 
-      const format = path.extname(filePath).slice(1) as AssetFormat;
-      const spec = ASSET_FORMATS[format];
+      const spec = findFormatByExtension(path.extname(filePath).slice(1));
       if (!spec) throw notFound();
 
       const bytes = await readFile(filePath).catch(() => {
         throw notFound();
       });
-      const body =
-        format === "svg" ? { text: bytes.toString("utf8") } : { blob: bytes.toString("base64") };
+      const body = spec.text
+        ? { text: bytes.toString("utf8") }
+        : { blob: bytes.toString("base64") };
       return {
         contents: [{ uri: uri.href, mimeType: spec.mimeType, ...body }],
       };

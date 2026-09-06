@@ -2,7 +2,9 @@ import { homedir } from "node:os";
 import * as path from "node:path";
 import { app } from "electron";
 import { logger } from "Main/Logger";
+import { storage } from "Main/Storage";
 import { McpAssetStore } from "./assets/McpAssetStore";
+import { resolveAndroidStudio } from "./assets/vectorDrawable/androidStudio";
 import { ASSET_DIR_NAME, MCP_HOST, MCP_PATH, MCP_PORT } from "./config";
 import { McpFileRegistry } from "./files/McpFileRegistry";
 import type { McpTabHost } from "./files/ports";
@@ -25,7 +27,11 @@ export class McpService {
   constructor(host: McpTabHost) {
     this.files = new McpFileRegistry(host);
     this.http = new McpHttpServer(() =>
-      createFigmaMcpHandler({ files: this.files, assets: this.assets }),
+      createFigmaMcpHandler({
+        files: this.files,
+        assets: this.assets,
+        androidStudio: () => resolveAndroidStudio(storage.settings.mcp?.androidStudioPath ?? ""),
+      }),
     );
   }
 
