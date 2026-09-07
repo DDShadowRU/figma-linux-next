@@ -1,8 +1,7 @@
-import type { ContentBlock, McpServer } from "@modelcontextprotocol/server";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { nativeImage } from "electron";
 import * as z from "zod/v4";
 import { ASSET_FORMATS, availableFormats, VECTOR_DRAWABLE } from "../assets/formats";
-import { resourceLink } from "../assets/McpAssetStore";
 import { optimizeSvg } from "../assets/optimizeSvg";
 import type { AndroidStudio } from "../assets/vectorDrawable/androidStudio";
 import {
@@ -140,7 +139,6 @@ export function registerDownloadAssets(server: McpServer, ctx: ToolContext) {
         }
 
         const files: z.infer<typeof outputSchema>["files"] = [];
-        const content: ContentBlock[] = [];
         if (exported.length > 0) {
           const dir = await ctx.assets.createCallDir();
           const drawables =
@@ -157,8 +155,7 @@ export function registerDownloadAssets(server: McpServer, ctx: ToolContext) {
               });
               continue;
             }
-            const fileName = `${base}.${spec.extension}`;
-            const written = await ctx.assets.write(dir, fileName, payload.data);
+            const filePath = await ctx.assets.write(dir, `${base}.${spec.extension}`, payload.data);
             const size =
               typeof payload.data === "string"
                 ? {
@@ -170,18 +167,17 @@ export function registerDownloadAssets(server: McpServer, ctx: ToolContext) {
             files.push({
               nodeId: item.id,
               name: item.name,
-              path: written.path,
+              path: filePath,
               ...size,
               warning: payload.warning,
             });
-            content.push(resourceLink(written, fileName, spec.mimeType, payload.warning));
           }
         }
 
         if (files.length === 0) {
           throw new Error(`No files were exported:\n${failed.map((f) => f.error).join("\n")}`);
         }
-        return { output: { files, failed }, content };
+        return { output: { files, failed } };
       });
     },
   );

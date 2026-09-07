@@ -73,15 +73,15 @@ and slow; prefer a frame or section. An icon takes well under a second, a 14 000
 **Pull assets into a project** — `download_assets({ fileKey, nodes: [nodeId, …], format?, scale? })`,
 up to 20 nodes per call, one format (png/jpg/svg) and scale for all of them. Each file comes back with its absolute path (under
 `<temp>/figma-mcp-assets/<callId>/`); the directory is wiped on the next app start, so copy
-what you need right away. The `resource_link`s are readable over MCP too (`resources/read`), which
-is the shortest way to get an svg's markup into context. One bad node lands in `failed`, the rest are still written. For
+what you need right away. The reply is paths only — read a file the ordinary way when you need its
+bytes. One bad node lands in `failed`, the rest are still written. For
 icons ask for `svg`: the markup is minified (svgo `preset-default`, ids not renamed) and comes with
 `width`, `height` and `viewBox`, Figma's `clip0_…` ids, flat `<path>`s in relative commands rounded to
 3 decimals and the fills Figma had; adapting colours to the project is your job.
 
 **Pull a photo out of a frame** — `download_image_fills({ fileKey, nodes: [nodeId, …] })`, up to 20
-nodes, one file per IMAGE fill, written next to the `download_assets` files and readable over
-`resources/read`. The bytes are the upload, so the extension tells you what the designer actually
+nodes, one file per IMAGE fill, written next to the `download_assets` files. The bytes are the
+upload, so the extension tells you what the designer actually
 gave Figma (a `.webp` will not open everywhere); png, jpg and webp are written, anything else lands
 in `failed`. Nothing is cropped: `scaleMode` in the tree says how the design places it (`FILL` =
 CSS `object-fit: cover`, nothing to do), and an `imageTransform` in the reply means there *is* a
@@ -141,8 +141,8 @@ Figma MCP keeps working.
 **Figma MCP:** `get_design({ fileKey, nodeId, depth? }) → text tree (cut nodes marked children=…)`;
 `get_screenshot({ fileKey, nodeId, scale? }) → image + { node, image, scale }`;
 `download_assets({ fileKey, nodes[], format?, scale? }) → { files[{ nodeId, name, path, width, height }], failed[] }`;
-`download_image_fills({ fileKey, nodes[] }) → { images[{ nodeId, name, imageRef, path, width, height, imageTransform? }], failed[] }`
-plus a `resource_link` per file. Every tool takes `fileKey` the same way.
+`download_image_fills({ fileKey, nodes[] }) → { images[{ nodeId, name, imageRef, path, width, height, imageTransform? }], failed[] }`.
+Every tool takes `fileKey` the same way.
 
 **chrome-figma (control):** `list_pages` / `select_page`, `evaluate_script`, `take_screenshot` /
 `take_snapshot`, `click` / `fill` / `type_text` / `press_key`, `list_console_messages`,

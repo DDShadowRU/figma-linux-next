@@ -288,11 +288,9 @@ new App(new WindowManager(), new Session(), new FontManager());
   sandbox's `/tmp` is invisible to the host). Last session's files are removed on the first export of a
   process (`McpAssetStore.prepare()`), not at start-up: binding the port never waits for the `rm`,
   and `McpService.start()` re-running on a port change from Settings leaves files alone. No `outputDir` parameter by design: the tool never writes outside
-  its own directory. Each file is also a `resource_link`; `registerAssetResource()` (`assets/`) serves
-  `resources/read` for `file://` URIs inside that root (svg and vector-drawable xml as text,
-  png/jpg/webp as blob) and rejects anything outside it. `findFormatByExtension()` resolves through
-  one `SERVED_TYPES` map built from `ASSET_FORMATS` plus `WEBP` — webp is stored by Figma but not
-  exportable, so it lives in `assets/imageTypes.ts` with the other magic-byte primitives
+  its own directory. The reply of both download tools is their `files`/`images` and `failed` rows
+  and nothing else — the absolute path is in there, and nothing is served back over MCP: the client
+  opens the file itself instead of spending context on bytes it already has on disk
 - svg exports pass through `optimizeSvg()` (`assets/optimizeSvg.ts`): svgo `preset-default` with
   `cleanupIds.minify` off, so Figma ids (`clip0_…`) survive inlining several files into one page.
   svgo is `import()`ed on the first svg export; if it throws, the raw export is written and a

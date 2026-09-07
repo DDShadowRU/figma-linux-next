@@ -1,7 +1,6 @@
-import type { ContentBlock, McpServer } from "@modelcontextprotocol/server";
+import type { McpServer } from "@modelcontextprotocol/server";
 import * as z from "zod/v4";
 import { sniffImageType } from "../assets/imageTypes";
-import { resourceLink } from "../assets/McpAssetStore";
 import { MAX_ASSET_NODES } from "../config";
 import { exportImageFills, type ImageFill, type ImageFillsNode } from "../scripts/exportImageFills";
 import type { ToolContext } from "./context";
@@ -79,7 +78,6 @@ export function registerDownloadImageFills(server: McpServer, ctx: ToolContext) 
 
         const written = new Map<string, Written>();
         const problems = new Map<string, FillProblem>();
-        const content: ContentBlock[] = [];
         const taken = new Set<string>();
         let dir: string | null = null;
         for (const { item, fill } of wanted) {
@@ -101,14 +99,8 @@ export function registerDownloadImageFills(server: McpServer, ctx: ToolContext) 
           }
           dir ??= await ctx.assets.createCallDir();
           const base = reserveBaseName(slugify(item.name ?? "", item.id), "-", taken);
-          const fileName = `${base}.${type.extension}`;
-          const asset = await ctx.assets.write(dir, fileName, data);
-          written.set(fill.imageRef, {
-            path: asset.path,
-            width: source.width,
-            height: source.height,
-          });
-          content.push(resourceLink(asset, fileName, type.mimeType));
+          const path = await ctx.assets.write(dir, `${base}.${type.extension}`, data);
+          written.set(fill.imageRef, { path, width: source.width, height: source.height });
         }
 
         const images: z.infer<typeof outputSchema>["images"] = [];
@@ -138,7 +130,7 @@ export function registerDownloadImageFills(server: McpServer, ctx: ToolContext) 
             `No image fills were downloaded:\n${failed.map((f) => f.error).join("\n")}`,
           );
         }
-        return { output: { images, failed }, content };
+        return { output: { images, failed } };
       });
     },
   );
