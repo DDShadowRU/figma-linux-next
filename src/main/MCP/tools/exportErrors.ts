@@ -1,14 +1,9 @@
 import type { DesignExport } from "../scripts/exportDesign";
-import type {
-  ImageFillError,
-  ImageFillsNode,
-} from "../scripts/exportImageFills";
+import type { ImageFillError, ImageFillsNode } from "../scripts/exportImageFills";
 import type { ExportedNode } from "../scripts/exportNodes";
 
 const describe = (item: { id: string; type?: string; name?: string }) =>
-  item.type
-    ? `Node "${item.id}" (${item.type} "${item.name}")`
-    : `Node "${item.id}"`;
+  item.type ? `Node "${item.id}" (${item.type} "${item.name}")` : `Node "${item.id}"`;
 
 export function exportErrorMessage(
   item: ExportedNode | DesignExport | ImageFillsNode,

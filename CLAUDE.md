@@ -215,7 +215,12 @@ new App(new WindowManager(), new Session(), new FontManager());
   `simplifyRawFigmaObject` + `collapseSvgContainers` and `tidyDesign()` strips Framelink's
   `imageDownloadArguments` (the crop and file-name plan for its own REST image tool) and `gifRef`
   (nothing here downloads gifs), empty values and opacity float noise — but keeps `imageRef`, the
-  id `download_image_fills` takes. A fill can end up inline on the node line, in `GLOBAL_VARS` (used
+  id `download_image_fills` takes. It also drops the components no node in the output points at:
+  Figma hands over the component map of the whole exported subtree, so the table listed the
+  components behind a button's switched-off icons and an agent had no way to place them. Kept are
+  the ids reachable through a `componentId` on a node **or in an `ELEMENTS` body** (a templated
+  node keeps nothing but `id`, `name` and `template`), and the component sets those components
+  name. A fill can end up inline on the node line, in `GLOBAL_VARS` (used
   ≥2× or a named Figma style) or inside an `ELEMENTS` body;
   `design/serializeTree.ts` is our own renderer of Framelink's `tree` format (`[TYPE] "name" #id
   key=value…`, shared `GLOBAL_VARS`/`ELEMENTS` tables) because the package doesn't export its
@@ -227,8 +232,8 @@ new App(new WindowManager(), new Session(), new FontManager());
   Plugin-API named styles are deliberately not wired yet
 - Framelink formats every line-height unit but Figma's Auto (`lineHeightUnit: "INTRINSIC_%"`),
   which it drops — so agents guessed the leading or read the neighbouring `paragraphSpacing` as
-  one. The absence is named rather than filled: `hasAutoLineHeight()` (`design/simplify.ts`) says
-  whether the output holds a text style with no `lineHeight`, and `getDesign` turns that into
+  one. The absence is named rather than filled: `designFlags()` (`design/simplify.ts`) reports in
+  one walk whether the output holds a text style with no `lineHeight`, and `getDesign` turns that into
   `Text styles: no lineHeight = Figma Auto (line-height: normal)`, passed to `serializeTree` in
   the same `notes` list as `TRUNCATED:` — the renderer only prints trailing sections, it does not
   compose them, and `TRUNCATED:` stays last because it is the actionable one. Styles are reached
@@ -238,6 +243,29 @@ new App(new WindowManager(), new Session(), new FontManager());
   note at all. Resolving Auto to `lineHeightPx` instead was built and rejected: Auto **is**
   `line-height: normal`, and pinning the font's current metrics into the output makes a value that
   silently stops being true when the font changes
+- Framelink `.reverse()`s every paint array into CSS order and says so nowhere, so agents guessed
+  which layer was on top; one read a card's photo as sitting under a 60% black veil and brightened
+  it 2.5×. The same `designFlags()` walk reports whether any paint reached the output and
+  `getDesign` turns that into `Fills and strokes: top layer first (CSS order)`, another entry in
+  the same `notes` list
+- `collapseSvgContainers` turns an icon's frame into one `IMAGE-SVG` node and drops the vectors —
+  along with the only place the icon's colour lived, since the frame itself usually has none. The
+  agent needs it while reading the tree, to tell an icon it should tint from the theme
+  (`currentColor`, `tint`) from one carrying a fixed colour; until now that meant downloading every
+  svg, and nobody downloaded the status bar. `design/svgColors.ts` wraps the package's hook — an
+  extractor next to it captures `globalVars` because `afterChildren` is handed no context — and when
+  it collapses, `keepSvgColors()` moves the unique paints of the vectors onto the node **in the
+  same `fills`/`strokes` fields**: the package counts style references only in those fields and
+  only as strings, so one reference covering the whole set stays a reference (the icon reads
+  `strokes=Primary/Main` like any other node) while a mix has to be resolved to values, capped at
+  `SVG_COLORS_MAX` with a trailing `"…"` — past that the agent goes to `download_assets` anyway. A
+  field of our own (`svgColors=`) was not an option for the same counting reason: the key would
+  lose its last reference and vanish from `GLOBAL_VARS`, leaving a dangling name. A
+  `BOOLEAN_OPERATION` is not descended into: it renders as one shape painted with its own fills,
+  and its operands keep the black they were drawn in — collecting those reported `#000000` on
+  status-bar icons whose svg has no black in it. Because these are colours standing side by side
+  and not a stack, a third `designFlags()` flag adds a second note, `IMAGE-SVG: fills and strokes
+  are the unique colors inside the collapsed vector`
 - `rootLayout.ts` is an extractor appended to `allExtractors` that rewrites the layout of the
   parentless node, putting the result back on the node **inline** rather than under a key of our
   own — `globalVars` is the package's namespace and its own dedup memo, and a style used once is
@@ -461,7 +489,7 @@ Custom switches can be added in settings under `app.commandSwitches`.
 | `src/main/MCP/scripts/exportDesign.ts` | The in-tab `JSON_REST_V1` export behind `get_design` (page load, depth pruning, raw size cap) |
 | `src/main/MCP/scripts/exportImageFills.ts` | The in-tab fill reader behind `download_image_fills` (hash matching, original bytes, pixel size) |
 | `src/main/MCP/assets/imageTypes.ts` | Stored-image containers: extension↔mime table plus magic-byte sniffing |
-| `src/main/MCP/design/` | `get_design` pipeline: `simplify.ts` (figma-developer-mcp + `tidyDesign`, cut-node detection), `rootLayout.ts` (the parentless node gets its real `dimensions`), `serializeTree.ts` (Framelink `tree` renderer) |
+| `src/main/MCP/design/` | `get_design` pipeline: `simplify.ts` (figma-developer-mcp + `tidyDesign`, cut-node detection, `designFlags`), `svgColors.ts` (the collapsed-icon colours and the traversal hook), `rootLayout.ts` (the parentless node gets its real `dimensions`), `serializeTree.ts` (Framelink `tree` renderer) |
 | `src/main/UrlHandlerIntegration.ts` | figma:// handler registration for AppImage / bare-binary launches |
 | `src/main/ExtensionManager.ts` | Plugin system with hot-reloading |
 | `src/renderer/Panel/App.svelte` | Main toolbar UI |

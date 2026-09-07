@@ -49,8 +49,11 @@ user gave you, or `fetch('/api/recent_files')` evaluated in the Recents page ove
 **Read a design** — `get_design({ fileKey, nodeId })`. The text block is a Framelink-style tree:
 `GLOBAL_VARS` (shared styles, keyed by Figma style name or a content hash), `ELEMENTS` (repeated
 node bodies referenced as `template=EL-…`), `COMPONENTS`, then `NODES` with one line per node —
-`[TYPE] "name" #id layout=… fills=… text=…`, two spaces per level. `IMAGE-SVG` is a vector container
-collapsed to one node: pull it with `download_assets(svg)`. A fill that carries an `imageRef` is a
+`[TYPE] "name" #id layout=… fills=… text=…`, two spaces per level. Paints are listed top layer
+first, which the trailing notes say out loud. `IMAGE-SVG` is a vector container collapsed to one
+node; its `fills`/`strokes` are the unique colours of the vectors inside — one value means the icon
+can be tinted, a list means it carries fixed colours — and the shapes themselves come from
+`download_assets(svg)`. A fill that carries an `imageRef` is a
 photo the designer uploaded — pull the original with `download_image_fills`, **not**
 `download_assets`, which re-renders the node with its text and children on top of the photo. A big node is cut by depth to fit ~64 KB: a node whose subtree was left
 out ends its line with `children=…` (request it by id to read inside) and the text ends with a

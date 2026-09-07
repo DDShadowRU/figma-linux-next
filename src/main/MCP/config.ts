@@ -22,4 +22,5 @@ export const DESIGN_RAW_MAX_BYTES =
 export const DESIGN_MAX_OUTPUT_BYTES =
   Number(process.env.FIGMA_MCP_DESIGN_MAX_OUTPUT_BYTES) || 64 * 1024;
 export const DESIGN_MAX_DEPTH = 50;
+export const SVG_COLORS_MAX = 4;
 export const ASSET_DIR_NAME = "figma-mcp-assets";

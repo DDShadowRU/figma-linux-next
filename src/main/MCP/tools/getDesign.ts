@@ -1,7 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/server";
 import * as z from "zod/v4";
 import { DESIGN_MAX_DEPTH, DESIGN_MAX_OUTPUT_BYTES } from "../config";
-import { cutNodeIds, hasAutoLineHeight, simplifyDesign, tidyDesign } from "../design/simplify";
+import { cutNodeIds, designFlags, simplifyDesign, tidyDesign } from "../design/simplify";
 import { serializeTree } from "../design/serializeTree";
 import { type DesignExport, exportDesign } from "../scripts/exportDesign";
 import type { ToolContext } from "./context";
@@ -11,6 +11,9 @@ import { fileKeySchema, nodeIdSchema, normalizeNodeId } from "./schemas";
 
 // Auto is exactly `line-height: normal`, so naming the absence beats filling it.
 const AUTO_LINE_HEIGHT_NOTE = "Text styles: no lineHeight = Figma Auto (line-height: normal)";
+const PAINT_ORDER_NOTE = "Fills and strokes: top layer first (CSS order)";
+const SVG_COLORS_NOTE =
+  "IMAGE-SVG: fills and strokes are the unique colors inside the collapsed vector";
 
 const inputSchema = z.object({
   fileKey: fileKeySchema,
@@ -66,7 +69,10 @@ async function renderWithinBudget(item: DesignExport, requestedDepth?: number): 
     tidyDesign(design);
     const cut = cutNodeIds(design, parents);
     const notes: string[] = [];
-    if (hasAutoLineHeight(design)) notes.push(AUTO_LINE_HEIGHT_NOTE);
+    const flags = designFlags(design);
+    if (flags.autoLineHeight) notes.push(AUTO_LINE_HEIGHT_NOTE);
+    if (flags.paints) notes.push(PAINT_ORDER_NOTE);
+    if (flags.svgColors) notes.push(SVG_COLORS_NOTE);
     if (cut.size > 0) {
       const shown =
         requestedDepth === undefined

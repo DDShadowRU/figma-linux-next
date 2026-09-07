@@ -43,12 +43,8 @@ export const ASSET_FORMATS: Record<AssetFormat, AssetFormatSpec> = {
 };
 
 /** VectorDrawable needs Android Studio's converter, so it is offered only when one is configured. */
-export function availableFormats(
-  vectorDrawable: boolean,
-): [AssetFormat, ...AssetFormat[]] {
-  return vectorDrawable
-    ? ["png", "jpg", "svg", VECTOR_DRAWABLE]
-    : ["png", "jpg", "svg"];
+export function availableFormats(vectorDrawable: boolean): [AssetFormat, ...AssetFormat[]] {
+  return vectorDrawable ? ["png", "jpg", "svg", VECTOR_DRAWABLE] : ["png", "jpg", "svg"];
 }
 
 export interface ServedType {
@@ -60,8 +56,6 @@ const SERVED_TYPES = new Map<string, ServedType>(
   [...Object.values(ASSET_FORMATS), WEBP].map((type) => [type.extension, type]),
 );
 
-export function findFormatByExtension(
-  extension: string,
-): ServedType | undefined {
+export function findFormatByExtension(extension: string): ServedType | undefined {
   return SERVED_TYPES.get(extension);
 }

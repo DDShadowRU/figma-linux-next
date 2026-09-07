@@ -1,24 +1,34 @@
 import type { GetFileNodesResponse } from "@figma/rest-api-spec";
-import {
-  type SimplifiedDesign,
-  allExtractors,
-  collapseSvgContainers,
-  simplifyRawFigmaObject,
-} from "figma-developer-mcp";
+import { type SimplifiedDesign, allExtractors, simplifyRawFigmaObject } from "figma-developer-mcp";
 import { rootLayoutExtractor } from "./rootLayout";
+import { svgColorsHook } from "./svgColors";
 
 export type SimplifiedNode = SimplifiedDesign["nodes"][number];
 
-export const nodeType = (node: SimplifiedNode, elements: SimplifiedDesign["elements"]) =>
-  node.type ?? (node.template ? elements[node.template]?.type : undefined);
+type Elements = SimplifiedDesign["elements"];
+
+export const nodeBody = (node: SimplifiedNode, elements: Elements) =>
+  node.template ? elements[node.template] : node;
+
+export const nodeType = (node: SimplifiedNode, elements: Elements) =>
+  nodeBody(node, elements)?.type;
+
+function* eachNode(nodes: SimplifiedNode[]): Generator<SimplifiedNode> {
+  for (const node of nodes) {
+    yield node;
+    if (node.children) yield* eachNode(node.children);
+  }
+}
 
 export function simplifyDesign(
   rest: GetFileNodesResponse,
   maxDepth?: number,
 ): Promise<SimplifiedDesign> {
-  return simplifyRawFigmaObject(rest, [...allExtractors, rootLayoutExtractor], {
+  const { captureStyles, afterChildren } = svgColorsHook();
+
+  return simplifyRawFigmaObject(rest, [...allExtractors, rootLayoutExtractor, captureStyles], {
     maxDepth,
-    afterChildren: collapseSvgContainers,
+    afterChildren,
   });
 }
 
@@ -41,6 +51,7 @@ export function tidyDesign(design: SimplifiedDesign): void {
   }
   prune(design.elements, emptyStyles);
   design.nodes = (prune(design.nodes, emptyStyles) ?? []) as SimplifiedNode[];
+  pruneComponents(design);
 }
 
 function prune(value: unknown, emptyStyles: Set<string>): unknown {
@@ -66,24 +77,46 @@ function prune(value: unknown, emptyStyles: Set<string>): unknown {
   return Object.keys(record).length ? record : undefined;
 }
 
-/**
- * A text style printed without a `lineHeight` — Framelink drops Figma's Auto
- * (`INTRINSIC_%`) and formats every other unit. Followed through `textStyle`
- * refs, not by scanning `globalVars`: the `ts1`… run deltas there are partial
- * styles with no line height either.
- */
-export function hasAutoLineHeight(design: SimplifiedDesign): boolean {
-  const isAuto = (ref: SimplifiedNode["textStyle"]) => {
-    const style = typeof ref === "string" ? design.globalVars.styles[ref] : ref;
-    return !!style && typeof style === "object" && !("lineHeight" in style);
-  };
-  const inNode = (node: SimplifiedNode): boolean =>
-    isAuto(node.textStyle) || (node.children ?? []).some(inNode);
+function pruneComponents(design: SimplifiedDesign): void {
+  const used = new Set<string>();
+  for (const node of eachNode(design.nodes)) {
+    const componentId = nodeBody(node, design.elements)?.componentId;
+    if (componentId) used.add(componentId);
+  }
 
-  return (
-    Object.values(design.elements).some((element) => isAuto(element.textStyle)) ||
-    design.nodes.some(inNode)
-  );
+  const sets = new Set<string>();
+  for (const [id, component] of Object.entries(design.components)) {
+    if (!used.has(id)) delete design.components[id];
+    else if (component.componentSetId) sets.add(component.componentSetId);
+  }
+  for (const id of Object.keys(design.componentSets)) {
+    if (!sets.has(id)) delete design.componentSets[id];
+  }
+}
+
+export interface DesignFlags {
+  autoLineHeight: boolean;
+  paints: boolean;
+  svgColors: boolean;
+}
+
+export function designFlags(design: SimplifiedDesign): DesignFlags {
+  const flags: DesignFlags = { autoLineHeight: false, paints: false, svgColors: false };
+
+  for (const node of eachNode(design.nodes)) {
+    const body = nodeBody(node, design.elements);
+    if (!body) continue;
+
+    const ref = body.textStyle;
+    const style = typeof ref === "string" ? design.globalVars.styles[ref] : ref;
+    if (style && typeof style === "object" && !("lineHeight" in style)) flags.autoLineHeight = true;
+
+    if (body.fills !== undefined || body.strokes !== undefined) {
+      flags.paints = true;
+      if (body.type === "IMAGE-SVG") flags.svgColors = true;
+    }
+  }
+  return flags;
 }
 
 /**
@@ -93,13 +126,9 @@ export function hasAutoLineHeight(design: SimplifiedDesign): boolean {
  */
 export function cutNodeIds(design: SimplifiedDesign, parents: Set<string>): Set<string> {
   const cut = new Set<string>();
-  const walk = (node: SimplifiedNode) => {
-    if (node.children) {
-      for (const child of node.children) walk(child);
-      return;
-    }
+  for (const node of eachNode(design.nodes)) {
+    if (node.children) continue;
     if (nodeType(node, design.elements) !== "IMAGE-SVG" && parents.has(node.id)) cut.add(node.id);
-  };
-  for (const node of design.nodes) walk(node);
+  }
   return cut;
 }
