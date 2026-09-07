@@ -40,9 +40,10 @@ export function registerGetDesign(server: McpServer, ctx: ToolContext) {
       inputSchema,
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
-    ({ fileKey, nodeId, depth }) =>
-      runTool("get_design", async () => {
-        const id = normalizeNodeId(nodeId);
+    ({ fileKey, nodeId, depth }) => {
+      const id = normalizeNodeId(nodeId);
+      const detail = `node=${id}${depth === undefined ? "" : ` depth=${depth}`}`;
+      return runTool({ tool: "get_design", fileKey, detail }, async () => {
         const item = await ctx.files.withFile(fileKey, (session) =>
           exportDesign(session, id, depth),
         );
@@ -50,7 +51,8 @@ export function registerGetDesign(server: McpServer, ctx: ToolContext) {
         if (error) throw new Error(error);
         const text = await renderWithinBudget(item, depth);
         return { content: [{ type: "text", text }] };
-      }),
+      });
+    },
   );
 }
 

@@ -9,7 +9,7 @@ export interface ExportConstraint {
 // `fit` is resolved inside the tab: only there is the node's size known.
 export type ExportSpec =
   | { format: "PNG" | "JPG"; constraint: ExportConstraint }
-  | { format: "PNG"; fit: { min: number; max: number } }
+  | { format: "PNG"; fit: { scale: number; maxEdge: number } }
   | { format: "SVG_STRING" };
 
 export interface ExportRequest {
@@ -83,9 +83,8 @@ export const buildExportNodesScript = (requests: ExportRequest[]) => `(async () 
     const fitConstraint = (size, fit) => {
       const longest = Math.max(size.width, size.height);
       const edge = size.width >= size.height ? "WIDTH" : "HEIGHT";
-      if (longest < fit.min) return { type: edge, value: fit.min };
-      if (longest > fit.max) return { type: edge, value: fit.max };
-      return { type: "SCALE", value: 1 };
+      if (longest * fit.scale > fit.maxEdge) return { type: edge, value: fit.maxEdge };
+      return { type: "SCALE", value: fit.scale };
     };
 
     for (const request of requests) {

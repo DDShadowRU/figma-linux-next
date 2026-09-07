@@ -21,8 +21,15 @@ export const nodeIdSchema = z
 
 export const normalizeNodeId = (raw: string) => raw.replace(/-/g, ":");
 
-export const assetScaleSchema = z
-  .number()
-  .min(ASSET_MIN_SCALE)
-  .max(ASSET_MAX_SCALE)
-  .describe("Render scale for png/jpg, 0.1–4 (1 = design pixels); ignored for svg");
+const scaleSchema = (note: string) =>
+  z
+    .number()
+    .min(ASSET_MIN_SCALE)
+    .max(ASSET_MAX_SCALE)
+    .describe(`Render scale, ${ASSET_MIN_SCALE}–${ASSET_MAX_SCALE} (1 = design pixels); ${note}`);
+
+export const assetScaleSchema = scaleSchema("ignored for svg");
+
+export const screenshotScaleSchema = scaleSchema(
+  "may be lowered to keep the image within the size limit",
+);

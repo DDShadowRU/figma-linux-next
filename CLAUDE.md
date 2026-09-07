@@ -197,8 +197,11 @@ new App(new WindowManager(), new Session(), new FontManager());
 - Tools are addressed by `fileKey`, never by "the active tab". `McpFileRegistry` opens each file once
   in a tab of its own (`Window.openMcpFile` → `Tab.owner === "mcp"`) and shares it between clients;
   `McpFileSession` waits for `window.figma` and runs scripts via `webContents.executeJavaScript()`
-- Tools: `get_design` (one node → text tree, below), `get_screenshot` (one node → PNG image block,
-  longest edge fitted into `[SCREENSHOT_MIN_EDGE, SCREENSHOT_MAX_EDGE]`), `download_assets` (up
+- Tools: `get_design` (one node → text tree, below), `get_screenshot` (one node → PNG image block
+  at `scale`, 0.1–4, default 1 = design px; small nodes are **not** upscaled, the scale is only
+  lowered — capped so the longest edge stays within `SCREENSHOT_MAX_EDGE`, then halved once
+  from the scale actually rendered if the png passes `SCREENSHOT_MAX_BYTES`; the real scale
+  comes back next to the image), `download_assets` (up
   to `MAX_ASSET_NODES` nodes → png/jpg/svg files) and `download_image_fills` (below: the images
   stored behind a node's IMAGE fills, untouched). `get_screenshot`/`download_assets` run one in-tab
   script, `buildExportNodesScript()` (`scripts/exportNodes.ts`): it resolves ids with
@@ -353,6 +356,12 @@ new App(new WindowManager(), new Session(), new FontManager());
   never from `ensureReady()`/`probeFileState()`, which the readiness poll also runs, or an idle
   session would keep itself alive. A tab the user is currently looking at (`McpTabHandle.isFocused`)
   is re-armed instead of closed; the next tool call for an evicted file just reopens it
+- Two log lines carry the numbers, and there is deliberately nothing else: `runTool` writes one
+  per call (tool, fileKey, node count/format for exports, ms, `ok` or the error code) and
+  `McpFileSession` one the first time the Plugin API answers, counted from the tab opening.
+  `FILE_OPEN_TIMEOUT_MS` is 45 s for the same reason — MCP clients drop a call at 60 s, and an
+  agent that hits the transport timeout gets an empty message instead of our tab state and the
+  hint to retry, so the constant must stay below the client's
 - Started in `App.ready()`; `App` adapts `WindowManager` to the `McpTabHost` port
 
 **UrlHandlerIntegration** (`src/main/UrlHandlerIntegration.ts`):
@@ -466,7 +475,7 @@ Custom switches can be added in settings under `app.commandSwitches`.
 
 **Logger** (`src/main/Logger/AppLogger.ts`):
 - Multi-sink architecture: console + file
-- File logs: `~/.config/figma-linux-next/logs/app.log`
+- File logs: `~/.config/figma-linux-next/logs/figma-linux-next.log`
 - Configurable log level in settings
 
 ## Critical Files Reference

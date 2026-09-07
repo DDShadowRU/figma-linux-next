@@ -109,8 +109,9 @@ export function registerDownloadAssets(server: McpServer, ctx: ToolContext) {
       outputSchema,
       annotations: { destructiveHint: false, openWorldHint: false },
     },
-    ({ fileKey, nodes, format, scale }) =>
-      runTool("download_assets", async () => {
+    ({ fileKey, nodes, format, scale }) => {
+      const detail = `nodes=${nodes.length} format=${format} scale=${scale}`;
+      return runTool({ tool: "download_assets", fileKey, detail }, async () => {
         const spec = ASSET_FORMATS[format];
         const items = await ctx.files.withFile(fileKey, (session) =>
           exportNodes(
@@ -181,6 +182,7 @@ export function registerDownloadAssets(server: McpServer, ctx: ToolContext) {
           throw new Error(`No files were exported:\n${failed.map((f) => f.error).join("\n")}`);
         }
         return { output: { files, failed }, content };
-      }),
+      });
+    },
   );
 }

@@ -43,6 +43,8 @@ export class McpFileSession {
   private closed = false;
   private pluginApiReady = false;
   private readying: Promise<void> | null = null;
+  private readonly openedAt = Date.now();
+  private readyLogged = false;
 
   constructor(
     public readonly fileKey: string,
@@ -151,6 +153,7 @@ export class McpFileSession {
       const state = await this.probeFileState();
       if (state?.ready) {
         this.pluginApiReady = true;
+        this.logReady();
         return;
       }
       if (state?.httpStatus && state.httpStatus >= 400) {
@@ -165,6 +168,13 @@ export class McpFileSession {
       }
       await sleep(this.pollMs);
     }
+  }
+
+  private logReady() {
+    if (this.readyLogged) return;
+    this.readyLogged = true;
+    const seconds = ((Date.now() - this.openedAt) / 1000).toFixed(1);
+    logger.info(`[mcp] tab ${this.tab.id} for ${this.fileKey}: Plugin API ready in ${seconds}s`);
   }
 
   private async describeTab(): Promise<string> {

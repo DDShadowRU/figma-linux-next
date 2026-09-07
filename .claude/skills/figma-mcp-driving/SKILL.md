@@ -61,9 +61,12 @@ out ends its line with `children=…` (request it by id to read inside) and the 
 requests only. A whole 14-level page renders in about a second; a hidden node, `0:0` and an
 unknown id are errors, an orphaned main component (deleted from the canvas) comes back childless.
 
-**Look at a node** — `get_screenshot({ fileKey, nodeId })`. The PNG arrives as an image block; the
-JSON next to it carries `node` (design px), `image` (px) and `scale` between them — use `scale` when
-measuring on the picture. Node ids: `1015:50826`, the URL form `1015-50826` (`node-id=…`), or an
+**Look at a node** — `get_screenshot({ fileKey, nodeId, scale? })`. The PNG arrives as an image
+block; the JSON next to it carries `node` (design px), `image` (px) and `scale` between them — use
+`scale` when measuring on the picture. `scale` defaults to 1 (design px, so a 24 px icon comes back
+24 px) and goes up to 4 when you need to read detail; it is never raised for you, only lowered — the
+longest edge is capped at 2000 px, so ask for 4 on a wide section and the reply reports the smaller
+scale it actually rendered. Node ids: `1015:50826`, the URL form `1015-50826` (`node-id=…`), or an
 instance child `I5752:65667;469:26400`. Pages export too (`1015:50826` above is one) but are large
 and slow; prefer a frame or section. An icon takes well under a second, a 14 000-px section ~5 s.
 
@@ -113,6 +116,11 @@ Figma MCP keeps working.
   first lines of page text.
 - `visibility: hidden` → something covers the parked tab (settings or changelog modal open, or a
   regression in `Window.mountMcpTab`). Close the modal and retry; the session re-probes by itself.
+- an empty timeout from the client, or a call that felt slow → the app log,
+  `~/.config/figma-linux-next/logs/figma-linux-next.log`. `grep '\[mcp\]'` gives one line per tool
+  call (`get_design <fileKey> node=… 12480ms ok`, or the error code and message instead of `ok`),
+  one `Plugin API ready in …s` counted from the tab opening, and the tab's open/close lines. That is
+  the whole instrumentation — nothing times an individual node.
 
 ## Gotchas
 
@@ -120,8 +128,10 @@ Figma MCP keeps working.
   and Chromium hides a `WebContentsView` that is detached *or* fully covered by a sibling view. That
   is why unfocused mcp tabs are parked at 1×1 px in the panel strip instead of detached — see the
   gotcha in `CLAUDE.md`. Don't "optimize" it away.
-- **Timeout is 60 s** (`FIGMA_MCP_FILE_OPEN_TIMEOUT_MS` overrides it for experiments). A large file
-  can need most of it on first open; the tab keeps loading after the error, so a retry usually lands.
+- **Timeout is 45 s** (`FIGMA_MCP_FILE_OPEN_TIMEOUT_MS` overrides it for experiments), kept under
+  the 60 s an MCP client gives a call: past that the agent gets the transport's empty "operation
+  timed out" instead of our error with the tab state. A large file can need most of it on first
+  open; the tab keeps loading after the error, so a retry usually lands.
 - **Stateless server.** There is no MCP session to keep; the file registry is process-wide, so two
   agents asking for one `fileKey` share one tab and one wait.
 - **`serverInfo.version`** is the app version from `package.json`.
@@ -129,7 +139,7 @@ Figma MCP keeps working.
 ## Tool quick-reference
 
 **Figma MCP:** `get_design({ fileKey, nodeId, depth? }) → text tree (cut nodes marked children=…)`;
-`get_screenshot({ fileKey, nodeId }) → image + { node, image, scale }`;
+`get_screenshot({ fileKey, nodeId, scale? }) → image + { node, image, scale }`;
 `download_assets({ fileKey, nodes[], format?, scale? }) → { files[{ nodeId, name, path, width, height }], failed[] }`;
 `download_image_fills({ fileKey, nodes[] }) → { images[{ nodeId, name, imageRef, path, width, height, imageTransform? }], failed[] }`
 plus a `resource_link` per file. Every tool takes `fileKey` the same way.

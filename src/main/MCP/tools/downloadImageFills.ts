@@ -59,8 +59,9 @@ export function registerDownloadImageFills(server: McpServer, ctx: ToolContext) 
       outputSchema,
       annotations: { destructiveHint: false, openWorldHint: false },
     },
-    ({ fileKey, nodes }) =>
-      runTool("download_image_fills", async () => {
+    ({ fileKey, nodes }) => {
+      const detail = `nodes=${nodes.length}`;
+      return runTool({ tool: "download_image_fills", fileKey, detail }, async () => {
         const { items, sources } = await ctx.files.withFile(fileKey, (session) =>
           exportImageFills(session, nodes.map(normalizeNodeId)),
         );
@@ -138,6 +139,7 @@ export function registerDownloadImageFills(server: McpServer, ctx: ToolContext) 
           );
         }
         return { output: { images, failed }, content };
-      }),
+      });
+    },
   );
 }
