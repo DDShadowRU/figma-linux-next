@@ -16,7 +16,11 @@ const BARE_KEY = /^[^\s":]*$/;
  * node, `[TYPE] "name" #id key=value …`, indented two spaces per level. A node
  * in `cut` (children left out) ends with `children=…`.
  */
-export function serializeTree(design: SimplifiedDesign, cut: Set<string>, note?: string): string {
+export function serializeTree(
+  design: SimplifiedDesign,
+  cut: Set<string>,
+  notes: string[] = [],
+): string {
   const sections = [`NAME: ${JSON.stringify(design.name)}`];
   const table = (title: string, entries: Record<string, unknown>) => {
     const keys = Object.keys(entries);
@@ -53,7 +57,7 @@ export function serializeTree(design: SimplifiedDesign, cut: Set<string>, note?:
   for (const node of design.nodes) renderNode(node, 0);
   sections.push(lines.join("\n"));
 
-  if (note) sections.push(note);
+  sections.push(...notes);
   return sections.join("\n\n");
 }
 

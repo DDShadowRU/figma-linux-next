@@ -1,13 +1,16 @@
 import type { McpServer } from "@modelcontextprotocol/server";
 import * as z from "zod/v4";
 import { DESIGN_MAX_DEPTH, DESIGN_MAX_OUTPUT_BYTES } from "../config";
-import { cutNodeIds, simplifyDesign, tidyDesign } from "../design/simplify";
+import { cutNodeIds, hasAutoLineHeight, simplifyDesign, tidyDesign } from "../design/simplify";
 import { serializeTree } from "../design/serializeTree";
 import { type DesignExport, exportDesign } from "../scripts/exportDesign";
 import type { ToolContext } from "./context";
 import { exportErrorMessage } from "./exportErrors";
 import { runTool } from "./runTool";
 import { fileKeySchema, nodeIdSchema, normalizeNodeId } from "./schemas";
+
+// Auto is exactly `line-height: normal`, so naming the absence beats filling it.
+const AUTO_LINE_HEIGHT_NOTE = "Text styles: no lineHeight = Figma Auto (line-height: normal)";
 
 const inputSchema = z.object({
   fileKey: fileKeySchema,
@@ -62,16 +65,19 @@ async function renderWithinBudget(item: DesignExport, requestedDepth?: number): 
     const design = await simplifyDesign(rest, depth);
     tidyDesign(design);
     const cut = cutNodeIds(design, parents);
-    const shown =
-      requestedDepth === undefined
-        ? `showing ${depth} of ${deepest} levels to fit the size limit`
-        : `showing ${depth} level(s) as requested`;
-    const note =
-      cut.size === 0
-        ? undefined
-        : `TRUNCATED: ${shown}; the ${cut.size} nodes marked children=… have more inside, ` +
-          "call get_design with their id to read them";
-    return serializeTree(design, cut, note);
+    const notes: string[] = [];
+    if (hasAutoLineHeight(design)) notes.push(AUTO_LINE_HEIGHT_NOTE);
+    if (cut.size > 0) {
+      const shown =
+        requestedDepth === undefined
+          ? `showing ${depth} of ${deepest} levels to fit the size limit`
+          : `showing ${depth} level(s) as requested`;
+      notes.push(
+        `TRUNCATED: ${shown}; the ${cut.size} nodes marked children=… have more inside, ` +
+          "call get_design with their id to read them",
+      );
+    }
+    return serializeTree(design, cut, notes);
   };
   const fits = (text: string) => Buffer.byteLength(text, "utf8") <= DESIGN_MAX_OUTPUT_BYTES;
 

@@ -5,6 +5,7 @@ import {
   collapseSvgContainers,
   simplifyRawFigmaObject,
 } from "figma-developer-mcp";
+import { rootLayoutExtractor } from "./rootLayout";
 
 export type SimplifiedNode = SimplifiedDesign["nodes"][number];
 
@@ -15,7 +16,7 @@ export function simplifyDesign(
   rest: GetFileNodesResponse,
   maxDepth?: number,
 ): Promise<SimplifiedDesign> {
-  return simplifyRawFigmaObject(rest, allExtractors, {
+  return simplifyRawFigmaObject(rest, [...allExtractors, rootLayoutExtractor], {
     maxDepth,
     afterChildren: collapseSvgContainers,
   });
@@ -63,6 +64,26 @@ function prune(value: unknown, emptyStyles: Set<string>): unknown {
     else record[key] = pruned;
   }
   return Object.keys(record).length ? record : undefined;
+}
+
+/**
+ * A text style printed without a `lineHeight` — Framelink drops Figma's Auto
+ * (`INTRINSIC_%`) and formats every other unit. Followed through `textStyle`
+ * refs, not by scanning `globalVars`: the `ts1`… run deltas there are partial
+ * styles with no line height either.
+ */
+export function hasAutoLineHeight(design: SimplifiedDesign): boolean {
+  const isAuto = (ref: SimplifiedNode["textStyle"]) => {
+    const style = typeof ref === "string" ? design.globalVars.styles[ref] : ref;
+    return !!style && typeof style === "object" && !("lineHeight" in style);
+  };
+  const inNode = (node: SimplifiedNode): boolean =>
+    isAuto(node.textStyle) || (node.children ?? []).some(inNode);
+
+  return (
+    Object.values(design.elements).some((element) => isAuto(element.textStyle)) ||
+    design.nodes.some(inNode)
+  );
 }
 
 /**

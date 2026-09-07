@@ -225,6 +225,30 @@ new App(new WindowManager(), new Session(), new FontManager());
   `outputSchema`, so `runTool` skips its JSON tail when a tool returns no `output` (the
   description is one sentence, like Framelink's). Variables (`boundVariables` → names) and
   Plugin-API named styles are deliberately not wired yet
+- Framelink formats every line-height unit but Figma's Auto (`lineHeightUnit: "INTRINSIC_%"`),
+  which it drops — so agents guessed the leading or read the neighbouring `paragraphSpacing` as
+  one. The absence is named rather than filled: `hasAutoLineHeight()` (`design/simplify.ts`) says
+  whether the output holds a text style with no `lineHeight`, and `getDesign` turns that into
+  `Text styles: no lineHeight = Figma Auto (line-height: normal)`, passed to `serializeTree` in
+  the same `notes` list as `TRUNCATED:` — the renderer only prints trailing sections, it does not
+  compose them, and `TRUNCATED:` stays last because it is the actionable one. Styles are reached
+  through the `textStyle` that references them, never by scanning `globalVars`: the character-run
+  deltas parked there (`ts1`, `ts2`, …) are partial styles with no line height of their own, and
+  sniffing them for font keys reported Auto in files that had none. A tree of icons carries no
+  note at all. Resolving Auto to `lineHeightPx` instead was built and rejected: Auto **is**
+  `line-height: normal`, and pinning the font's current metrics into the output makes a value that
+  silently stops being true when the font changes
+- `rootLayout.ts` is an extractor appended to `allExtractors` that rewrites the layout of the
+  parentless node, putting the result back on the node **inline** rather than under a key of our
+  own — `globalVars` is the package's namespace and its own dedup memo, and a style used once is
+  what it inlines anyway. Framelink
+  builds `dimensions` for children only and renames a root's fixed axis `contextual` with the size
+  moved into `designedWidth`/`designedHeight`, so the requested node was described in words no
+  child uses and a canvas frame reported no size at all. The root now always carries `dimensions`
+  from its bounding box — there is no parent to resolve `fill`/`hug` against — and `contextual`,
+  `designedWidth` and `designedHeight` no longer occur anywhere in the output. Running as an
+  extractor puts this before the package's own style dedup/inline/`ELEMENTS` pass, so writing a
+  fresh key is enough: the abandoned one loses its last reference and is dropped
 - Node ids accept `1015:50826`, the URL form `1015-50826` and instance children `I…;…`.
   `normalizeNodeId()` maps dashes to colons in the tool body, not in zod: a `.transform()` would not
   survive the SDK's JSON-Schema conversion for `tools/list`
@@ -437,7 +461,7 @@ Custom switches can be added in settings under `app.commandSwitches`.
 | `src/main/MCP/scripts/exportDesign.ts` | The in-tab `JSON_REST_V1` export behind `get_design` (page load, depth pruning, raw size cap) |
 | `src/main/MCP/scripts/exportImageFills.ts` | The in-tab fill reader behind `download_image_fills` (hash matching, original bytes, pixel size) |
 | `src/main/MCP/assets/imageTypes.ts` | Stored-image containers: extension↔mime table plus magic-byte sniffing |
-| `src/main/MCP/design/` | `get_design` pipeline: `simplify.ts` (figma-developer-mcp + `tidyDesign`, cut-node detection), `serializeTree.ts` (Framelink `tree` renderer) |
+| `src/main/MCP/design/` | `get_design` pipeline: `simplify.ts` (figma-developer-mcp + `tidyDesign`, cut-node detection), `rootLayout.ts` (the parentless node gets its real `dimensions`), `serializeTree.ts` (Framelink `tree` renderer) |
 | `src/main/UrlHandlerIntegration.ts` | figma:// handler registration for AppImage / bare-binary launches |
 | `src/main/ExtensionManager.ts` | Plugin system with hot-reloading |
 | `src/renderer/Panel/App.svelte` | Main toolbar UI |
