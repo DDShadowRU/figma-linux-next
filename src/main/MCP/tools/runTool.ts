@@ -20,6 +20,7 @@ export async function runTool<T extends Record<string, unknown>>(
 ): Promise<CallToolResult> {
   const started = Date.now();
   const head = `[mcp] ${call.tool} ${call.fileKey} ${call.detail}`;
+  logger.info(`${head} start`);
   try {
     const { output, content = [] } = await body();
     logger.info(`${head} ${Date.now() - started}ms ok`);

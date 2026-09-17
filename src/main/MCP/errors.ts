@@ -5,7 +5,8 @@ export type McpFileErrorCode =
   | "not_logged_in"
   | "tab_closed"
   | "no_window"
-  | "plugin_api";
+  | "plugin_api"
+  | "stalled";
 
 export class McpFileError extends Error {
   constructor(

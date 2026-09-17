@@ -1,4 +1,5 @@
 import { logger } from "Main/Logger";
+import { TAB_WORK_TIMEOUT_MS } from "../config";
 import { McpFileError } from "../errors";
 import { McpFileSession, type McpFileSessionOptions } from "./McpFileSession";
 import type { McpTabHost } from "./ports";
@@ -34,8 +35,21 @@ export class McpFileRegistry {
         }
         throw error;
       }
-      return work(session);
+      return this.withDeadline(work(session), fileKey);
     });
+  }
+
+  /**
+   * Inside whileBusy on purpose: executeJavaScript cannot be cancelled and does not
+   * reject when its tab goes away, so without this the file stayed busy forever.
+   */
+  private withDeadline<T>(work: Promise<T>, fileKey: string): Promise<T> {
+    let timer: NodeJS.Timeout | undefined;
+    const message = `The tab for ${fileKey} did not answer within ${TAB_WORK_TIMEOUT_MS / 1000}s. Retry the call.`;
+    const deadline = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new McpFileError("stalled", message)), TAB_WORK_TIMEOUT_MS);
+    });
+    return Promise.race([work, deadline]).finally(() => clearTimeout(timer));
   }
 
   /**

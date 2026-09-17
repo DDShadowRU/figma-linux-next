@@ -23,6 +23,8 @@ export function exportErrorMessage(
       return `${described} has no renderable size`;
     case "export_failed":
       return `Export of ${described} failed: ${item.message}`;
+    case "export_stalled":
+      return `Rendering ${described} did not finish in time: retry the call, or ask for fewer nodes or a smaller scale; svg exports and download_image_fills do not render and are not affected`;
     case "skipped":
       return `${label} skipped: the export budget was used up by earlier nodes`;
     case "raw_too_large": {
@@ -58,6 +60,8 @@ export function imageFillErrorMessage(
       return `Reading ${of} failed: ${problem.message}`;
     case "unsupported_format":
       return `${of} is stored in a format this tool does not support (png, jpg and webp only)`;
+    case "stalled":
+      return `Reading ${of} did not finish in time: retry the call, or ask for fewer nodes`;
     case "skipped":
       return `${of} skipped: the export budget was used up by earlier fills`;
   }

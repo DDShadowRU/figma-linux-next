@@ -354,7 +354,21 @@ new App(new WindowManager(), new Session(), new FontManager());
   never from `ensureReady()`/`probeFileState()`, which the readiness poll also runs, or an idle
   session would keep itself alive. A tab the user is currently looking at (`McpTabHandle.isFocused`)
   is re-armed instead of closed; the next tool call for an evicted file just reopens it
-- Two log lines carry the numbers, and there is deliberately nothing else: `runTool` writes one
+- No tool call can hang past a client's patience. Inside the tab, each `exportAsync` (and each
+  stored-image read) races a `withDeadline` timer — `EXPORT_NODE_TIMEOUT_MS`, capped by what is left
+  of `EXPORT_BUDGET.timeMs` — so one stuck node becomes an `export_stalled` row and the others still
+  come back; the budget alone could never do this, being checked only *between* nodes and therefore
+  never at all for a one-node `get_screenshot`. That policy lives once, in `EXPORT_DEADLINE_JS`
+  (`scripts/index.ts`), which both cyclic scripts paste in and which rejects with a `stalled`
+  sentinel the catch they already have recognises by identity.
+  Host-side, `McpFileRegistry.withFile()` races the
+  tool's work against `TAB_WORK_TIMEOUT_MS`, under the 60 s at which clients drop a call, so the
+  agent gets our message instead of a bare `The operation timed out.` That deadline sits **inside**
+  `whileBusy`: `executeJavaScript` cannot be cancelled and does not reject when its tab goes away,
+  so without it a stuck call left the file marked busy for the rest of the session. It starts after
+  `ensureReady()`, so a slow file load is not charged against it
+- Three log lines carry the numbers, and there is deliberately nothing else: `runTool` writes one
+  on entry (a hanging call used to leave no trace at all) and one
   per call (tool, fileKey, node count/format for exports, ms, `ok` or the error code) and
   `McpFileSession` one the first time the Plugin API answers, counted from the tab opening.
   `FILE_OPEN_TIMEOUT_MS` is 45 s for the same reason — MCP clients drop a call at 60 s, and an
@@ -559,14 +573,30 @@ a background tab on demand; `tab.thumbnail` is the only source the hover card ha
 ### openFile must close the New File tab
 `Window.openFile()` must call `closeNewFileTab()` after opening the file tab. Without this, the New File tab stays visible as a leftover. `createFile()` already does this — keep them consistent.
 
-### The Plugin API needs a visible view — mcp tabs are parked, not detached
-Figma only initializes `window.figma` in a page whose document is visible, and Chromium reports a
-`WebContentsView` hidden both when it is detached from the window and when a sibling view covers it
-completely (verified live: detached, or mounted under the focused tab, the file loads but every tool
-times out with `visibility: hidden`). `Window.mountMcpTab()` therefore keeps an unfocused mcp tab
-attached at 1×1 px under the panel strip (which does not list it), at `x = tab.id` so parked tabs
-never cover each other, and `detachLastFocusedTab()` re-parks an mcp tab instead of removing it. Modal views (settings, changelog)
-do cover it while open; `McpFileSession.ensureReady()` re-probes on every call and recovers.
+### The Plugin API needs frames — mcp tabs are parked, and painted on demand
+Chromium reports a `WebContentsView` hidden both when it is detached from the window and when a
+sibling view covers it completely (verified live: detached, or mounted under the focused tab, the
+file loads but every tool times out with `visibility: hidden`). `Window.mountMcpTab()` therefore
+keeps an unfocused mcp tab attached at 1×1 px under the panel strip (which does not list it), at
+`x = tab.id` so parked tabs never cover each other, and `detachLastFocusedTab()` re-parks an mcp tab
+instead of removing it. Modal views (settings, changelog) do cover it while open;
+`McpFileSession.ensureReady()` re-probes on every call and recovers.
+
+Staying uncovered is necessary but **not sufficient**, and `document.visibilityState` is not the
+condition — frames are. With the app window minimized the parked tab reported itself `visible` and
+still never brought up `window.figma`, because the compositor had stopped painting: measured on a
+1920×5642 landing, `Plugin API ready in 410.7s`, and six consecutive 45 s waits that all failed;
+every png export queued behind it hung for minutes and the whole set flushed within 43 ms of the
+user restoring the window. svg and `JSON_REST_V1` exports were unaffected throughout (9 ms while a
+png of the same node had been hanging for 70 s), which is what makes the failure look like a
+half-alive tab rather than a dead one — they are serialization, png is rasterization.
+`McpFileSession.whileBusy()` supplies the frames: for exactly the span a tool call holds the tab it
+runs a pump calling `McpTabHandle.paint()` (`webContents.capturePage()`, which raises Chromium's
+capturer count and forces a frame) every `PAINT_PUMP_MS`. Both the Plugin-API wait and the export
+sit inside that span, and nothing pumps between calls. Same file, window minimized, after the pump:
+ready in 5.3 s, five png nodes at scale 1.5 in 1.5 s. `backgroundThrottling: false` on the mcp tab
+was tried first — it does flip the tab to `visible`, but on its own it did not boot Figma, and with
+the pump it changed nothing, so it is deliberately not set.
 
 ### app.whenReady() not app.on('ready', ...)
 Always use `app.whenReady().then(...)` for the Electron ready handler. `app.on('ready', ...)` silently misses the event if registration is delayed (e.g. async startup). `app.whenReady()` resolves immediately if the app is already ready.

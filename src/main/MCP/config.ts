@@ -8,6 +8,7 @@ export const SERVER_VERSION = APP_VERSION;
 
 export const FILE_OPEN_TIMEOUT_MS = Number(process.env.FIGMA_MCP_FILE_OPEN_TIMEOUT_MS) || 45_000;
 export const PLUGIN_API_POLL_MS = 500;
+export const PAINT_PUMP_MS = 250;
 export const MCP_TAB_IDLE_TTL_MS = Number(process.env.FIGMA_MCP_TAB_IDLE_TTL_MS) || 15 * 60 * 1000;
 
 export const SCREENSHOT_MAX_EDGE = 2000;
@@ -16,6 +17,11 @@ export const MAX_ASSET_NODES = 20;
 export const ASSET_MIN_SCALE = 0.1;
 export const ASSET_MAX_SCALE = 4;
 export const EXPORT_BUDGET = { timeMs: 45_000, bytes: 64 * 1024 * 1024 };
+/** The budget above is only checked between nodes, so one stuck node needs its own deadline. */
+export const EXPORT_NODE_TIMEOUT_MS =
+  Number(process.env.FIGMA_MCP_EXPORT_NODE_TIMEOUT_MS) || 20_000;
+/** Under the 60s clients drop a call at, so the agent gets our message, not a transport timeout. */
+export const TAB_WORK_TIMEOUT_MS = Number(process.env.FIGMA_MCP_TAB_WORK_TIMEOUT_MS) || 50_000;
 export const DESIGN_RAW_MAX_BYTES =
   Number(process.env.FIGMA_MCP_DESIGN_RAW_MAX_BYTES) || 48 * 1024 * 1024;
 export const DESIGN_MAX_OUTPUT_BYTES =

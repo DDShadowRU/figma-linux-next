@@ -1,5 +1,6 @@
 import { EXPORT_BUDGET } from "../config";
 import type { McpFileSession } from "../files/McpFileSession";
+import { EXPORT_DEADLINE_JS } from "./index";
 
 export type ImageFillsNodeError =
   | "not_found"
@@ -10,7 +11,7 @@ export type ImageFillsNodeError =
   | "video_fill"
   | "export_failed";
 
-export type ImageFillError = "image_missing" | "read_failed" | "skipped";
+export type ImageFillError = "image_missing" | "read_failed" | "stalled" | "skipped";
 
 export interface ImageFill {
   imageRef: string;
@@ -49,6 +50,7 @@ export const buildExportImageFillsScript = (ids: string[]) => `(async () => {
     const ids = ${JSON.stringify(ids)};
     const budget = ${JSON.stringify(EXPORT_BUDGET)};
     const started = performance.now();
+${EXPORT_DEADLINE_JS}
     let bytesTotal = 0;
     const items = [];
     const sources = {};
@@ -72,10 +74,13 @@ export const buildExportImageFillsScript = (ids: string[]) => `(async () => {
             ? await figma.getImageByHashAsync(hash)
             : figma.getImageByHash(hash);
         if (!image) return { error: "image_missing" };
-        const [size, bytes] = await Promise.all([image.getSizeAsync(), image.getBytesAsync()]);
+        const [size, bytes] = await withDeadline(
+          Promise.all([image.getSizeAsync(), image.getBytesAsync()]),
+        );
         bytesTotal += bytes.length;
         return { width: size.width, height: size.height, data: figma.base64Encode(bytes) };
       } catch (e) {
+        if (e === stalled) return { error: "stalled" };
         return { error: "read_failed", message: String((e && e.message) || e) };
       }
     };

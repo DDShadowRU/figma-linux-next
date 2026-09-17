@@ -1,6 +1,11 @@
 import { logger } from "Main/Logger";
 import { parseURL } from "Utils/Common";
-import { FILE_OPEN_TIMEOUT_MS, MCP_TAB_IDLE_TTL_MS, PLUGIN_API_POLL_MS } from "../config";
+import {
+  FILE_OPEN_TIMEOUT_MS,
+  MCP_TAB_IDLE_TTL_MS,
+  PAINT_PUMP_MS,
+  PLUGIN_API_POLL_MS,
+} from "../config";
 import { McpFileError } from "../errors";
 import { FILE_STATE_SCRIPT, TAB_STATE_SCRIPT } from "../scripts";
 import type { McpTabHandle } from "./ports";
@@ -40,6 +45,7 @@ export class McpFileSession {
   private readonly idleTtlMs: number;
   private idleTimer: ReturnType<typeof setTimeout> | null = null;
   private busyDepth = 0;
+  private pumping = false;
   private closed = false;
   private pluginApiReady = false;
   private readying: Promise<void> | null = null;
@@ -87,13 +93,33 @@ export class McpFileSession {
     await this.readying;
   }
 
-  /** Runs `work` with the tab reported busy; concurrent holds share one flag. */
+  /**
+   * Runs `work` with the tab reported busy; concurrent holds share one flag. A paint
+   * pump runs for exactly that span: a minimized or covered window produces no frames,
+   * and both Figma's canvas boot and raster `exportAsync` wait on them.
+   */
   public async whileBusy<T>(work: () => Promise<T>): Promise<T> {
-    if (this.busyDepth++ === 0) this.tab.setBusy(true);
+    if (this.busyDepth++ === 0) {
+      this.tab.setBusy(true);
+      this.pumpPaint().catch(() => {});
+    }
     try {
       return await work();
     } finally {
       if (--this.busyDepth === 0) this.tab.setBusy(false);
+    }
+  }
+
+  private async pumpPaint(): Promise<void> {
+    if (this.pumping) return;
+    this.pumping = true;
+    try {
+      while (this.busyDepth > 0 && this.isAlive) {
+        await this.tab.paint();
+        await sleep(PAINT_PUMP_MS);
+      }
+    } finally {
+      this.pumping = false;
     }
   }
 

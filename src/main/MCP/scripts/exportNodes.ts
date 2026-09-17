@@ -1,5 +1,6 @@
 import { EXPORT_BUDGET } from "../config";
 import type { McpFileSession } from "../files/McpFileSession";
+import { EXPORT_DEADLINE_JS } from "./index";
 
 export interface ExportConstraint {
   type: "SCALE" | "WIDTH" | "HEIGHT";
@@ -23,6 +24,7 @@ export type ExportNodeError =
   | "hidden"
   | "no_size"
   | "export_failed"
+  | "export_stalled"
   | "skipped";
 
 /** Either `error` is set, or name/type/width/height plus one of data/svg are. */
@@ -54,6 +56,7 @@ export const buildExportNodesScript = (requests: ExportRequest[]) => `(async () 
     const requests = ${JSON.stringify(requests)};
     const budget = ${JSON.stringify(EXPORT_BUDGET)};
     const started = performance.now();
+${EXPORT_DEADLINE_JS}
     let bytesTotal = 0;
     const items = [];
 
@@ -110,7 +113,7 @@ export const buildExportNodesScript = (requests: ExportRequest[]) => `(async () 
           item.error = "hidden";
           continue;
         }
-        const size = await measure(node);
+        const size = await withDeadline(measure(node));
         if (!size || Math.max(size.width, size.height) <= 0) {
           item.error = "no_size";
           continue;
@@ -120,11 +123,15 @@ export const buildExportNodesScript = (requests: ExportRequest[]) => `(async () 
         const settings = request.spec.fit
           ? { format: "PNG", constraint: fitConstraint(size, request.spec.fit) }
           : request.spec;
-        const result = await node.exportAsync(settings);
+        const result = await withDeadline(node.exportAsync(settings));
         if (typeof result === "string") item.svg = result;
         else item.data = figma.base64Encode(result);
         bytesTotal += result.length;
       } catch (e) {
+        if (e === stalled) {
+          item.error = "export_stalled";
+          continue;
+        }
         item.error = "export_failed";
         item.message = String((e && e.message) || e);
       }

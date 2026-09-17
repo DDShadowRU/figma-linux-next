@@ -1,3 +1,5 @@
+import { EXPORT_NODE_TIMEOUT_MS } from "../config";
+
 // Scripts run inside a Figma tab via webContents.executeJavaScript. They return
 // JSON strings rather than objects: Figma's Plugin API values don't survive
 // V8 structured clone across the executeJavaScript boundary.
@@ -33,3 +35,20 @@ export const TAB_STATE_SCRIPT = `(() => {
     return JSON.stringify({ error: String((e && e.message) || e) });
   }
 })()`;
+
+/** Pasted into the export scripts, which must already declare `budget` and `started`. */
+export const EXPORT_DEADLINE_JS = `
+    const stalled = new Error("stalled");
+    const withDeadline = (promise) => {
+      let timer;
+      return Promise.race([
+        promise,
+        new Promise((_, reject) => {
+          timer = setTimeout(
+            () => reject(stalled),
+            Math.min(${EXPORT_NODE_TIMEOUT_MS}, Math.max(0, budget.timeMs - (performance.now() - started))),
+          );
+        }),
+      ]).finally(() => clearTimeout(timer));
+    };
+`;

@@ -554,6 +554,14 @@ export default class Window {
         tab.busy = busy;
         this.syncMcpTabs();
       },
+      paint: async () => {
+        if (wc.isDestroyed()) return;
+        try {
+          await wc.capturePage();
+        } catch {
+          // A frame we could not get is not a reason to fail the call.
+        }
+      },
       close: () => {
         if (wc.isDestroyed()) return;
         this.closeTab(tab.id);
@@ -563,9 +571,8 @@ export default class Window {
   }
 
   /**
-   * Where an mcp tab lives while it is not the focused one. Figma only brings
-   * up the Plugin API in a page whose document is visible, and Chromium marks
-   * a WebContentsView hidden both when it is detached and when a sibling view
+   * Where an mcp tab lives while it is not the focused one. Chromium marks a
+   * WebContentsView hidden both when it is detached and when a sibling view
    * covers it completely (verified: detached, or parked under the focused
    * tab, the file loads but `window.figma` never appears). So the view is
    * shrunk to a pixel and parked in the panel strip, where no tab view can
@@ -574,6 +581,11 @@ export default class Window {
    * session re-probes and recovers once they close. Unlike a user tab, which
    * is hidden while another one is on screen, a parked mcp tab stays shown —
    * setVisible(false) is what detaching used to be.
+   *
+   * Staying uncovered is necessary but not sufficient, and `document.visibilityState`
+   * is not the condition — frames are. With the window minimized the parked tab
+   * reported itself visible and still never brought up the Plugin API. The session's
+   * paint pump supplies the frames.
    */
   private mountMcpTab(tab: Tab) {
     if (!this.window.contentView.children.includes(tab.view)) {
