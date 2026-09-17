@@ -578,8 +578,10 @@ Chromium reports a `WebContentsView` hidden both when it is detached from the wi
 sibling view covers it completely (verified live: detached, or mounted under the focused tab, the
 file loads but every tool times out with `visibility: hidden`). `Window.mountMcpTab()` therefore
 keeps an unfocused mcp tab attached at 1×1 px under the panel strip (which does not list it), at
-`x = tab.id` so parked tabs never cover each other, and `detachLastFocusedTab()` re-parks an mcp tab
-instead of removing it. Modal views (settings, changelog) do cover it while open;
+`x = tab.id` so parked tabs never cover each other. Every other tab view is attached once and
+switched with `setVisible` (see the Wayland note in `Window.swapTo`); an mcp tab is the exception
+that stays shown, so `swapTo()` re-parks it instead of hiding it. Modal views (settings, changelog)
+do cover it while open;
 `McpFileSession.ensureReady()` re-probes on every call and recovers.
 
 Staying uncovered is necessary but **not sufficient**, and `document.visibilityState` is not the
