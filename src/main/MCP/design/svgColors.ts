@@ -1,9 +1,7 @@
 import type { ExtractorFn, GlobalVars, TraversalOptions } from "figma-developer-mcp";
 import { collapseSvgContainers } from "figma-developer-mcp";
 import { SVG_COLORS_MAX } from "../config";
-import type { SimplifiedNode } from "./simplify";
-
-type Paints = Exclude<NonNullable<SimplifiedNode["fills"]>, string>;
+import type { Paints, SimplifiedNode } from "./simplify";
 
 const PAINT_FIELDS = ["fills", "strokes"] as const;
 

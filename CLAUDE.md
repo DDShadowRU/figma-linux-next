@@ -280,6 +280,23 @@ new App(new WindowManager(), new Session(), new FontManager());
   `designedWidth` and `designedHeight` no longer occur anywhere in the output. Running as an
   extractor puts this before the package's own style dedup/inline/`ELEMENTS` pass, so writing a
   fresh key is enough: the abandoned one loses its last reference and is dropped
+- Framelink's linear gradients were wrong in two ways: it maps the handles in 0..1 box space,
+  so the angle ignores the aspect ratio (Figma's corner-to-corner diagonal on 891×91 came out
+  `135deg`, it is `174.2deg`), and a stop lying outside the box is clamped to 0%/100% **with its own
+  colour** — handles reaching past the edge made agents start a banner at `#E84A4A` when its left
+  edge is `#743442`. `linearGradient.ts` is another appended extractor that recomputes every
+  visible `GRADIENT_LINEAR` fill/stroke from the node size: the gradient is affine, so `t` is
+  linear in pixels, the CSS angle is the normal to the third handle's direction, and CSS 0%/100%
+  are the lowest/highest `t` over the four corners; out-of-box stops are replaced by the colour
+  interpolated at the edge. Angle and positions keep one decimal (integers were off by up to 80/255
+  on small handles). The value now depends on the size, so a named style can have several: the
+  first keeps its name, the others become `Name (WxH)`; unnamed results get their own
+  `fill_<sha1>` key. Unlike `rootLayout.ts` this does write keys into `globalVars`: a gradient
+  repeats across nodes and the package's dedup counts only string references, so an inline value
+  would never be shared. The file leans on the package's private layout (visible paints mapped
+  then reversed, `Name (styleId)` collisions, zero-reference keys dropped) and is redundant once
+  upstream (GLips/Figma-Context-MCP) passes the node size to its gradient converter: recheck on
+  every bump. Radial/angular/diamond still come straight from the package, radius dropped
 - Node ids accept `1015:50826`, the URL form `1015-50826` and instance children `I…;…`.
   `normalizeNodeId()` maps dashes to colons in the tool body, not in zod: a `.transform()` would not
   survive the SDK's JSON-Schema conversion for `tools/list`
@@ -510,7 +527,7 @@ Custom switches can be added in settings under `app.commandSwitches`.
 | `src/main/MCP/scripts/exportDesign.ts` | The in-tab `JSON_REST_V1` export behind `get_design` (page load, depth pruning, raw size cap) |
 | `src/main/MCP/scripts/exportImageFills.ts` | The in-tab fill reader behind `download_image_fills` (hash matching, original bytes, pixel size) |
 | `src/main/MCP/assets/imageTypes.ts` | Stored-image containers: extension↔mime table plus magic-byte sniffing |
-| `src/main/MCP/design/` | `get_design` pipeline: `simplify.ts` (figma-developer-mcp + `tidyDesign`, cut-node detection, `designFlags`), `svgColors.ts` (the collapsed-icon colours and the traversal hook), `rootLayout.ts` (the parentless node gets its real `dimensions`), `serializeTree.ts` (Framelink `tree` renderer) |
+| `src/main/MCP/design/` | `get_design` pipeline: `simplify.ts` (figma-developer-mcp + `tidyDesign`, cut-node detection, `designFlags`), `svgColors.ts` (the collapsed-icon colours and the traversal hook), `rootLayout.ts` (the parentless node gets its real `dimensions`), `linearGradient.ts` (linear gradients recomputed from the node size), `serializeTree.ts` (Framelink `tree` renderer) |
 | `src/main/UrlHandlerIntegration.ts` | figma:// handler registration for AppImage / bare-binary launches |
 | `src/main/ExtensionManager.ts` | Plugin system with hot-reloading |
 | `src/renderer/Panel/App.svelte` | Main toolbar UI |

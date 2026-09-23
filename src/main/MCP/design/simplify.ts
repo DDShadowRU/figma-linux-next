@@ -1,9 +1,12 @@
 import type { GetFileNodesResponse } from "@figma/rest-api-spec";
 import { type SimplifiedDesign, allExtractors, simplifyRawFigmaObject } from "figma-developer-mcp";
+import { linearGradientExtractor } from "./linearGradient";
 import { rootLayoutExtractor } from "./rootLayout";
 import { svgColorsHook } from "./svgColors";
 
 export type SimplifiedNode = SimplifiedDesign["nodes"][number];
+
+export type Paints = Exclude<NonNullable<SimplifiedNode["fills"]>, string>;
 
 type Elements = SimplifiedDesign["elements"];
 
@@ -26,10 +29,11 @@ export function simplifyDesign(
 ): Promise<SimplifiedDesign> {
   const { captureStyles, afterChildren } = svgColorsHook();
 
-  return simplifyRawFigmaObject(rest, [...allExtractors, rootLayoutExtractor, captureStyles], {
-    maxDepth,
-    afterChildren,
-  });
+  return simplifyRawFigmaObject(
+    rest,
+    [...allExtractors, linearGradientExtractor(), rootLayoutExtractor, captureStyles],
+    { maxDepth, afterChildren },
+  );
 }
 
 const IMAGE_DOWNLOAD_KEYS = ["gifRef", "imageDownloadArguments"];
